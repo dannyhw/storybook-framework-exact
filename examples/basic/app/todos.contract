@@ -1,0 +1,41 @@
+shape Todo
+  id: string
+  title: string
+  done: bool
+
+shape Change
+  count: number
+
+component Todos
+  state draft = ""
+  mutation changed as shape Change refreshes todos
+  resource todos = todos() as shape Todo[]
+  derive left = todos.filter(t => not t.done).length
+
+  action edit(value: string)
+    draft = value
+  action add
+    if draft.trim() != ""
+      send changed = addTodo(draft.trim())
+      draft = ""
+  action toggle(id: string, done: bool)
+    send changed = setDone(id, done)
+  action remove(id: string)
+    send changed = removeTodo(id)
+
+  view
+    list appearance="auto" height="100%"
+      section
+        header
+          text `${left} left` role="heading" testId="count"
+        row
+          input value=draft input=edit submit=add placeholder="What needs doing?" aria-label="New todo" testId="new-todo" flex=1 min-width=0
+          button press=add buttonStyle="filled" testId="add"
+            text "Add"
+      section
+        for t in todos key=t.id
+          row testId=`todo-${t.id}`
+            input type="checkbox" checked=t.done change=toggle(t.id) aria-label=t.title testId=`toggle-${t.id}`
+            text t.title flex=1
+            button press=remove(t.id) destructive=true testId=`remove-${t.id}`
+              text "Delete"

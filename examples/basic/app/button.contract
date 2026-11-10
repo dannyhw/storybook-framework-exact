@@ -1,0 +1,12 @@
+component Button
+  props
+    label: string
+    tone: enum<"primary", "secondary">
+    disabled: bool
+    press: action
+  view
+    button press=press disabled=disabled testId="btn"
+      padding=12
+      border-radius=8
+      background-color=(tone == "primary" ? "#1ea7fd" : "#eeeeee")
+      text label color=(tone == "primary" ? "#ffffff" : "#333333")

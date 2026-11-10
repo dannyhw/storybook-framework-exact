@@ -1,0 +1,16 @@
+{
+  "name": "example-basic",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6116 --no-open",
+    "build-storybook": "storybook build"
+  },
+  "devDependencies": {
+    "@storybook/addon-docs": "^10.6.7",
+    "storybook": "^10.6.7",
+    "storybook-framework-exact": "file:../..",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}

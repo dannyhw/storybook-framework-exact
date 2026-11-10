@@ -1,0 +1,14 @@
+component Counter
+  props
+    start: number
+    step: number
+    changed: action
+  state count = start
+  action bump
+    count = count + step
+    changed(count + step)
+  view
+    row gap=12 align-items="center"
+      text `Count: ${count}` testId="count"
+      button press=bump testId="bump"
+        text `+${step}`

@@ -1,0 +1,6 @@
+{
+  "name": "Basic",
+  "id": "dev.storybook.exact.basic",
+  "start_url": "/",
+  "app": { "id": "dev.storybook.exact.basic", "name": "Basic" }
+}

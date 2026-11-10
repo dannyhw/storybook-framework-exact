@@ -1,0 +1,11 @@
+component Card
+  props
+    title: string
+    elevated: bool
+  slot
+  view
+    column gap=8 padding=16 border-radius=12 max-width=320
+      background-color="-exact-secondary-background"
+      box-shadow=(elevated ? "0 6px 20px rgba(0,0,0,0.18)" : "none")
+      text title font-weight=600 role="heading" testId="card-title"
+      children

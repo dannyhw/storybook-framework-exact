@@ -1,0 +1,84 @@
+{
+  "name": "storybook-framework-exact",
+  "version": "0.1.0",
+  "description": "Community Storybook framework for Expo's Exact (web target): write stories for Contract components.",
+  "keywords": [
+    "storybook",
+    "storybook-framework",
+    "exact",
+    "expo",
+    "contract",
+    "vite"
+  ],
+  "homepage": "https://github.com/dannyhw/storybook-framework-exact",
+  "bugs": {
+    "url": "https://github.com/dannyhw/storybook-framework-exact/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dannyhw/storybook-framework-exact.git"
+  },
+  "license": "MIT",
+  "author": "Daniel Williams",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./preset": {
+      "types": "./dist/preset.d.ts",
+      "default": "./dist/preset.js"
+    },
+    "./preview": {
+      "types": "./dist/preview/entry-preview.d.ts",
+      "default": "./dist/preview/entry-preview.js"
+    },
+    "./vite": {
+      "types": "./dist/node/vite-plugin.d.ts",
+      "default": "./dist/node/vite-plugin.js"
+    },
+    "./contract": {
+      "types": "./contract.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "storybook-exact": "./dist/node/cli.js"
+  },
+  "files": [
+    "dist",
+    "contract.d.ts",
+    "README.md"
+  ],
+  "workspaces": [
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/node/cli.js', 0o755)\"",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "setup-exact": "node dist/node/cli.js setup",
+    "example": "npm run storybook -w examples/basic",
+    "example:build": "npm run build-storybook -w examples/basic"
+  },
+  "dependencies": {
+    "@storybook/builder-vite": "^10.0.0"
+  },
+  "peerDependencies": {
+    "storybook": "^10.0.0",
+    "vite": "^6.3.0 || ^7.0.0 || ^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "playwright-core": "^1.56.0",
+    "storybook": "^10.6.7",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
