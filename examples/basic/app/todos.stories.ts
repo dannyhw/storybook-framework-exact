@@ -42,6 +42,18 @@ export const Seeded: Story = {
   },
 };
 
+/** Typing into a field the component controls, then submitting with Enter. */
+export const Typed: Story = {
+  parameters: { exact: { sources: store([]) } },
+  play: async ({ canvas, userEvent }) => {
+    const field = await canvas.findByLabelText('New todo');
+    await userEvent.type(field, 'Write a Storybook framework{Enter}');
+    await expect(await canvas.findByText('Write a Storybook framework')).toBeVisible();
+    await expect(field).toHaveValue('');
+    await expect(canvas.getByText('1 left')).toBeVisible();
+  },
+};
+
 /** A source may answer later: the list waits for it. */
 export const SlowAnswer: Story = {
   parameters: {

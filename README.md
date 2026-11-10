@@ -166,7 +166,6 @@ Builds happen in a copy of your app's Contract sources kept under `node_modules/
 
 - **One story per document.** Exact's runtime cannot be unmounted, and it mounts into a fixed element. Docs pages therefore show each story in its own iframe (`docs.story.inline` is `false` by default; turning it on breaks pages with more than one story). Switching stories loads a fresh copy of the runtime, and the previous copy is not disposed until the preview reloads.
 - **Decorators cannot wrap markup.** A story renders an Exact app, not DOM you return. A decorator can change args and parameters; to wrap a component, wrap it in Contract.
-- **`userEvent.type` loses characters** in Exact text fields. Real keystrokes are fine. Until this is resolved, avoid asserting on text typed that way.
 - **Assets.** Images and fonts in the app's `assets/` folder are available to the build; serve them to the preview with Storybook's `staticDirs`, for example `staticDirs: [{ from: '../app/assets', to: '/assets' }]`.
 - **Native modules, the app's TypeScript and Rust data modules, and routes into other apps** are not part of a story.
 - **Web only.** Stories show Exact's web target, not its native hosts.
