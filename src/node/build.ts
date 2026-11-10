@@ -39,8 +39,9 @@ interface Registered {
 }
 
 /**
- * A compiler's output without its warnings. A failed build prints every warning before the error that
- * stopped it, and a warning is long (its code frame, then its advice), so the error would be off the screen.
+ * A compiler's output without its warnings. A failed build prints its warnings beside the error that
+ * stopped it, and a warning is long (a paragraph of advice, then its code frame), so the error would be off
+ * the screen.
  */
 export function withoutWarnings(output: string): string {
   const kept: string[] = [];
