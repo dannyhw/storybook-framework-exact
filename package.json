@@ -62,7 +62,8 @@
     "test": "vitest run",
     "setup-exact": "node dist/node/cli.js setup",
     "example": "npm run storybook -w examples/basic",
-    "example:build": "npm run build-storybook -w examples/basic"
+    "example:build": "npm run build-storybook -w examples/basic",
+    "e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
     "@storybook/builder-vite": "^10.0.0"

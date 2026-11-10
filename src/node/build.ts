@@ -229,7 +229,8 @@ export class Builder {
   /** Write the wrapper, asking the compiler what each action prop is given until it compiles. */
   private async inferSignatures(toolchain: Toolchain, component: ComponentInfo, specifier: string, entry: string): Promise<void> {
     const signatures: Signatures = {};
-    for (let attempt = 0; attempt < 8; attempt++) {
+    // One compile for each handler's count, one for each parameter of the longest, and the one that passes.
+    for (let attempt = 0; attempt < 12; attempt++) {
       writeFileSync(entry, wrapperSource(component, specifier, signatures));
       if (!component.props.some(isAction)) return;
       const outcome = await exec(toolchain.contract, ['build', '--json', entry], { env: toolchain.env, maxBuffer: 64 * 1024 * 1024 }).then(

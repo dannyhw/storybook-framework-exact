@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+
+      # The toolchain (Exact's checkout, its compiler build, the pinned Bun) is keyed by the commit the
+      # framework pins, so it is built once per pin. Restored and saved as separate steps: the implicit save of
+      # actions/cache happens only when the whole job passes, and a failing e2e should not cost the next run a
+      # Cargo build.
+      - name: Read the pinned Exact commit
+        id: exact
+        run: echo "commit=$(grep -oE "EXACT_COMMIT = '[0-9a-f]{40}'" src/node/toolchain.ts | grep -oE '[0-9a-f]{40}')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Exact toolchain
+        id: toolchain
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/storybook-framework-exact
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: exact-${{ runner.os }}-${{ steps.exact.outputs.commit }}
+
+      # Clones Exact at the pinned commit, downloads the Bun it pins, and builds the compiler with Cargo
+      # (rustup installs the Rust that Exact's rust-toolchain.toml pins). Skips what the cache restored.
+      - run: node dist/node/cli.js setup
+
+      - name: Save the Exact toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/storybook-framework-exact
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: exact-${{ runner.os }}-${{ steps.exact.outputs.commit }}
+
+      # `npm test` skipped the tests that compile generated wrappers: there was no compiler yet.
+      - name: Compile the generated wrappers
+        run: EXACT_ROOT="$HOME/.cache/storybook-framework-exact/exact-${COMMIT:0:12}" npx vitest run test/contract.test.ts
+        env:
+          COMMIT: ${{ steps.exact.outputs.commit }}
+
+      - run: npm run e2e
+      - run: npm run e2e -- --static
+
+      - name: Upload screenshots of failed checks
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-output
+          path: e2e-output
+          if-no-files-found: ignore
