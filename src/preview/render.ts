@@ -30,7 +30,8 @@ interface Mount {
 /** The one app this document holds. */
 let live: Mount | null = null;
 let instances = 0;
-const manifests = new Map<string, Promise<Manifest>>();
+/** Each component's manifest at its latest revision: an older revision's build may be gone from the server. */
+const manifests = new Map<string, { revision: string; manifest: Promise<Manifest> }>();
 
 export const render: ArgsStoryFn<ExactRenderer> = (args, context) => {
   const { component, parameters } = context;
@@ -43,20 +44,33 @@ export const render: ArgsStoryFn<ExactRenderer> = (args, context) => {
 const pageUrl = (path: string) => new URL(path, document.baseURI).href;
 
 function manifestOf(component: ExactComponent): Promise<Manifest> {
-  const key = `${component.id}@${component.revision}`;
-  let pending = manifests.get(key);
-  if (!pending) {
-    pending = fetch(pageUrl(`${component.manifest}?r=${component.revision}`)).then(async (response) => {
-      if (!response.ok) throw new Error(`Could not load ${component.name}'s build (${component.manifest}): HTTP ${response.status}`);
-      const manifest = (await response.json()) as Manifest | ManifestError;
-      if ('error' in manifest) throw new Error(manifest.error);
-      return manifest;
-    });
-    pending.catch(() => manifests.delete(key));
-    manifests.set(key, pending);
-  }
-  return pending;
+  const known = manifests.get(component.id);
+  if (known?.revision === component.revision) return known.manifest;
+  const manifest = fetch(pageUrl(`${component.manifest}?r=${component.revision}`)).then(async (response) => {
+    if (!response.ok) throw new Error(`Could not load ${component.name}'s build (${component.manifest}): HTTP ${response.status}`);
+    const body = (await response.json()) as Manifest | ManifestError;
+    if ('error' in body) throw new Error(body.error);
+    return body;
+  });
+  const entry = { revision: component.revision, manifest };
+  manifests.set(component.id, entry);
+  manifest.catch(() => {
+    if (manifests.get(component.id) === entry) manifests.delete(component.id);
+  });
+  return manifest;
 }
+
+/**
+ * `work`, or nothing once the story is torn down. Storybook reloads the whole preview when a story it has
+ * left is still rendering a few ticks later, and a first build takes a second or two: the render lets go at
+ * once, and what it was waiting for finishes unseen.
+ */
+function unlessAborted<T>(signal: AbortSignal | undefined, work: Promise<T>): Promise<T | typeof ABORTED> {
+  if (!signal) return work;
+  if (signal.aborted) return Promise.resolve(ABORTED);
+  return Promise.race([work, new Promise<typeof ABORTED>((resolve) => signal.addEventListener('abort', () => resolve(ABORTED), { once: true }))]);
+}
+const ABORTED = Symbol('aborted');
 
 /** The build's stylesheet, loaded before the app starts: its classes are the app's own, and its fonts are read at boot. */
 function stylesheet(href: string): Promise<void> {
@@ -109,7 +123,9 @@ function bridge(mount: Mount) {
 
 export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, storyContext, showMain, showError, forceRemount }, canvasElement) => {
   const story = storyFn();
-  const manifest = await manifestOf(story.component);
+  const signal = storyContext.abortSignal;
+  const manifest = await unlessAborted(signal, manifestOf(story.component));
+  if (manifest === ABORTED) return;
   const key = `${storyContext.id}@${manifest.version}`;
 
   // The same story on the same build: the running app asks for its args again. Its own state stays.
@@ -134,20 +150,22 @@ export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, s
   live = mount;
   const superseded = () => live !== mount;
 
-  await stylesheet(pageUrl(manifest.css));
-  if (superseded()) return;
+  const release = () => {
+    if (live === mount) live = null;
+    root.remove();
+  };
+
+  if ((await unlessAborted(signal, stylesheet(pageUrl(manifest.css)))) === ABORTED || superseded()) return release();
   canvasElement.replaceChildren(root);
   showMain();
 
   // A fresh instance of the runtime: the last one's state is its module's, and cannot be reset.
-  const module = (await import(/* @vite-ignore */ `${pageUrl(manifest.bundle)}?instance=${instances++}`)) as { storybookStart(bridge: unknown): Promise<Handle> };
-  if (superseded() || !root.isConnected) return;
+  const loading = import(/* @vite-ignore */ `${pageUrl(manifest.bundle)}?instance=${instances++}`) as Promise<{ storybookStart(bridge: unknown): Promise<Handle> }>;
+  const module = await unlessAborted(signal, loading);
+  if (module === ABORTED || superseded() || !root.isConnected) return release();
   // What the last instance published for its own glue is not this one's.
   delete (globalThis as { exact?: unknown }).exact;
   mount.handle = await module.storybookStart(bridge(mount));
 
-  return () => {
-    if (live === mount) live = null;
-    root.remove();
-  };
+  return release;
 };

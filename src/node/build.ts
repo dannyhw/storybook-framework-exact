@@ -2,12 +2,13 @@
 // framework owns so the preview can start the app in a canvas and answer its data seam.
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 import type { ComponentInfo, ExactComponent, Manifest, WireType } from '../types.ts';
 import { type Diagnostic, type Signatures, defaultFor, isAction, refineSignatures, wrapperSource } from './contract.ts';
+import { withLock } from './lock.ts';
 import { WRAPPER_PREFIX, appDirectory, projectCache, syncShadow, unshadow } from './shadow.ts';
 import type { Log, Toolchain } from './toolchain.ts';
 
@@ -15,6 +16,9 @@ const exec = promisify(execFile);
 
 /** The URL prefix builds are served and emitted under, relative to the page. */
 export const ASSETS = 'exact-assets';
+
+/** How many builds of a component stay on disk, the current one included. */
+const KEPT_VERSIONS = 4;
 
 const digest = (text: string | Buffer, length = 12) => createHash('sha256').update(text).digest('hex').slice(0, length);
 const posix = (path: string) => path.split(sep).join('/');
@@ -34,10 +38,27 @@ interface Registered {
   first: boolean;
 }
 
+/**
+ * A compiler's output without its warnings. A failed build prints every warning before the error that
+ * stopped it, and a warning is long (its code frame, then its advice), so the error would be off the screen.
+ */
+export function withoutWarnings(output: string): string {
+  const kept: string[] = [];
+  let inWarning = false;
+  for (const line of output.split('\n')) {
+    if (/:\d+:\d+ warning \[/.test(line)) inWarning = true;
+    // A warning runs until the next line that is neither its code frame (` 11 | …`, `    | ^^^`) nor blank.
+    else if (inWarning && !/^\s*\d*\s*\|/.test(line) && line.trim()) inWarning = false;
+    if (!inWarning) kept.push(line);
+  }
+  const text = kept.join('\n').trim();
+  return text || output.trim();
+}
+
 /** A failed command's message: Exact's scripts explain themselves on stderr. */
 function failure(error: unknown): string {
   const e = error as { stderr?: string; stdout?: string; message?: string };
-  return (e.stderr?.trim() || e.stdout?.trim() || e.message || String(error)).trim();
+  return withoutWarnings(e.stderr?.trim() || e.stdout?.trim() || e.message || String(error));
 }
 
 /**
@@ -76,8 +97,8 @@ export function readSourceTypes(names: string): Record<string, [WireType[], Wire
 
 export class Builder {
   private readonly registered = new Map<string, Registered>();
-  private readonly built = new Map<string, { revision: string; result: Promise<Built> }>();
-  /** Exact's build takes a lock per app and the shadow is shared, so builds run one at a time. */
+  private readonly built = new Map<string, { revision: string; result: Promise<Built>; published?: string }>();
+  /** The shadow and the build directory are shared, so this process's builds run one at a time. */
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
@@ -120,16 +141,21 @@ export class Builder {
     const shadow = join(cache, 'shadow');
     const { revision } = syncShadow(known.appDir, shadow);
     const last = this.built.get(id);
-    if (last?.revision === revision) return last.result;
-    const result = this.queue.then(
-      () => this.make(id, known, cache, shadow),
-      () => this.make(id, known, cache, shadow)
-    );
+    // A later build of the component may have pruned what this one published.
+    if (last?.revision === revision && (!last.published || existsSync(last.published))) return last.result;
+    const make = () => withLock(cache, () => this.make(id, known, cache, shadow));
+    const result = this.queue.then(make, make);
     this.queue = result.catch(() => {});
-    this.built.set(id, { revision, result });
-    result.catch(() => {
-      if (this.built.get(id)?.result === result) this.built.delete(id);
-    });
+    const entry: { revision: string; result: Promise<Built>; published?: string } = { revision, result };
+    this.built.set(id, entry);
+    result.then(
+      (built) => {
+        entry.published = built.bundle;
+      },
+      () => {
+        if (this.built.get(id) === entry) this.built.delete(id);
+      }
+    );
     return result;
   }
 
@@ -174,10 +200,14 @@ export class Builder {
     const style = readFileSync(join(out, 'style.css'));
     const version = digest(Buffer.concat([code, style]));
     const serve = join(cache, 'serve', id);
-    // The page may still be loading the version before this one; older ones are no one's.
+    // A page may still be loading a version before this one (this server's, or another's on the same
+    // app), so the newest few stay; older ones are no one's.
     if (existsSync(serve)) {
-      const versions = readdirSync(serve).filter((v) => v !== version);
-      for (const stale of versions.slice(0, Math.max(0, versions.length - 1))) rmSync(join(serve, stale), { recursive: true, force: true });
+      const older = readdirSync(serve)
+        .filter((v) => v !== version)
+        .map((v) => ({ v, at: statSync(join(serve, v)).mtimeMs }))
+        .sort((a, b) => b.at - a.at);
+      for (const stale of older.slice(KEPT_VERSIONS - 1)) rmSync(join(serve, stale.v), { recursive: true, force: true });
     }
     const published = join(serve, version);
     mkdirSync(published, { recursive: true });

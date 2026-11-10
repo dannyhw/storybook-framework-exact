@@ -2,6 +2,8 @@
 
 A community [Storybook](https://storybook.js.org) framework for [Exact](https://github.com/expo/exact), Expo's cross-platform runtime. It lets you write stories for components written in Contract (`.contract` files) and see them on Exact's web target, with Controls, Actions, play functions, docs and hot reload.
 
+[![The example Storybook: controls, actions, a play function, a component with mocked data, a docs page and hot reload](docs/demo.gif)](docs/demo.mp4)
+
 ```ts
 // button.stories.ts
 import type { Meta, StoryObj } from 'storybook-framework-exact';
@@ -182,6 +184,13 @@ npm run e2e              # browser tests against the example
 ```
 
 `examples/basic` is an npm workspace that uses the framework from the repository root.
+
+The walkthrough at the top of this page is recorded from the running example, so it shows what the code does today. To record it again, with `npm run example` running:
+
+```sh
+npx playwright-core install ffmpeg   # once
+node scripts/record-demo.mjs         # writes docs/demo.mp4 and docs/demo.gif
+```
 
 ## License
 
