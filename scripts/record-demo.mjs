@@ -66,10 +66,14 @@ async function click(locator, options = {}) {
   await locator.click(options);
 }
 
-/** A story by its sidebar entry, opening its component first when it is closed. */
-async function open(id) {
+/** A story by its sidebar entry, opening what it is under (`within`, outermost first) when that is closed. */
+async function open(id, within = [id.split('--')[0]]) {
   const entry = page.locator(`#${id}`);
-  if (!(await entry.isVisible())) await click(page.locator(`[data-item-id="${id.split('--')[0]}"]`));
+  for (const parent of within) {
+    if (await entry.isVisible()) break;
+    const next = within[within.indexOf(parent) + 1];
+    if (!next || !(await page.locator(`[data-item-id="${next}"]`).isVisible())) await click(page.locator(`[data-item-id="${parent}"]`));
+  }
   await click(entry);
 }
 
@@ -124,6 +128,15 @@ try {
   }
   await click(canvas.locator('[data-testid="toggle-1"]'));
   await pause(1800);
+
+  await say("A library's component has its package's tokens, and its action gets the event's value");
+  await open('library-chip--off', ['library', 'library-chip']);
+  const toggle = canvas.locator('[data-testid="chip-toggle"]');
+  await toggle.waitFor();
+  await pause(900);
+  await click(page.getByRole('tab', { name: /Actions/ }));
+  await click(toggle);
+  await pause(2200);
 
   await say('A docs page shows every story, each in its own frame');
   await open('button--docs');
