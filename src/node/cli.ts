@@ -26,7 +26,7 @@ Options:
 if (command === 'setup') {
   const started = Date.now();
   const toolchain = await ensureToolchain(options, (message) => console.log(`exact: ${message}`));
-  console.log(`exact: ready in ${Math.round((Date.now() - started) / 1000)} s\n  checkout  ${toolchain.root}${toolchain.managed ? '' : ' (yours)'}\n  bun       ${toolchain.bun}\n  compiler  ${toolchain.contract}`);
+  console.log(`exact: ready in ${Math.round((Date.now() - started) / 1000)} s\n  checkout  ${toolchain.root}${toolchain.managed ? '' : ' (yours)'}\n  bun       ${toolchain.bun}\n  compiler  ${toolchain.compiler}`);
 } else if (command === 'types') {
   const visit = (dir: string, found: string[]): string[] => {
     for (const name of readdirSync(dir)) {

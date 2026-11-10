@@ -148,6 +148,14 @@ function bridge(mount: Mount) {
   };
 }
 
+/** How long a step of a mount took, for the browser's performance tools (`exact:` measures). */
+function timed<T>(step: string, work: Promise<T>): Promise<T> {
+  const from = performance.now();
+  const done = () => performance.measure(`exact:${step}`, { start: from, end: performance.now() });
+  work.then(done, done);
+  return work;
+}
+
 export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, storyContext, showMain, showError, forceRemount }, canvasElement) => {
   const story = storyFn();
   if (!isExactComponent(story?.component)) {
@@ -156,7 +164,7 @@ export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, s
     );
   }
   const signal = storyContext.abortSignal;
-  const manifest = await unlessAborted(signal, manifestOf(story.component));
+  const manifest = await unlessAborted(signal, timed('manifest', manifestOf(story.component)));
   if (manifest === ABORTED) return;
   const key = `${storyContext.id}@${manifest.version}`;
 
@@ -200,18 +208,18 @@ export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, s
     root.remove();
   };
 
-  if ((await unlessAborted(signal, stylesheet(pageUrl(manifest.css)))) === ABORTED || superseded()) return release();
+  if ((await unlessAborted(signal, timed('stylesheet', stylesheet(pageUrl(manifest.css))))) === ABORTED || superseded()) return release();
   fillCanvas(canvasElement);
   canvasElement.replaceChildren(root);
   showMain();
 
   // A fresh instance of the runtime: the last one's state is its module's, and cannot be reset.
   const loading = import(/* @vite-ignore */ `${pageUrl(manifest.bundle)}?instance=${instances++}`) as Promise<{ storybookStart(bridge: unknown): Promise<Handle> }>;
-  const module = await unlessAborted(signal, loading);
+  const module = await unlessAborted(signal, timed('import', loading));
   if (module === ABORTED || superseded() || !root.isConnected) return release();
   // What the last instance published for its own glue is not this one's.
   delete (globalThis as { exact?: unknown }).exact;
-  mount.handle = await module.storybookStart(bridge(mount));
+  mount.handle = await timed('boot', module.storybookStart(bridge(mount)));
 
   return release;
 };

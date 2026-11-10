@@ -1,9 +1,10 @@
-import { homedir } from 'node:os';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { EXACT_COMMIT, atLeast, bunAsset, cacheHome, locate } from '../src/node/toolchain.ts';
+import { EXACT_COMMIT, PROFILE, atLeast, builtCompilers, bunAsset, cacheHome, locate } from '../src/node/toolchain.ts';
 
 describe('atLeast', () => {
   it('compares dotted versions numerically', () => {
@@ -66,5 +67,49 @@ describe('locate', () => {
 
   it('pins a full commit', () => {
     expect(EXACT_COMMIT).toMatch(/^[0-9a-f]{40}$/);
+  });
+});
+
+describe('builtCompilers', () => {
+  const suffix = process.platform === 'win32' ? '.exe' : '';
+  /** A target directory with the compilers of each profile, built at the given times (seconds). */
+  const target = (profiles: Record<string, number>, binaries = ['contract', 'exact-web-js']) => {
+    const directory = mkdtempSync(join(tmpdir(), 'exact-target-'));
+    for (const [profile, at] of Object.entries(profiles)) {
+      mkdirSync(join(directory, profile));
+      for (const binary of binaries) {
+        writeFileSync(join(directory, profile, binary + suffix), '');
+        utimesSync(join(directory, profile, binary + suffix), at, at);
+      }
+    }
+    return directory;
+  };
+  const profileOf = (directory: string, managed: boolean) => {
+    const found = builtCompilers(directory, managed);
+    rmSync(directory, { recursive: true, force: true });
+    return found && [found.contract, found.compiler].map((path) => path.slice(directory.length + 1));
+  };
+
+  it('finds nothing where nothing is built', () => {
+    expect(profileOf(target({}), true)).toBeNull();
+    expect(profileOf(target({}), false)).toBeNull();
+  });
+
+  it('wants both compilers', () => {
+    expect(profileOf(target({ [PROFILE]: 100 }, ['contract']), true)).toBeNull();
+  });
+
+  it("builds its own checkout's with the optimised profile, whatever else is there", () => {
+    expect(profileOf(target({ debug: 200 }), true)).toBeNull();
+    expect(profileOf(target({ debug: 200, [PROFILE]: 100 }), true)).toEqual([join(PROFILE, `contract${suffix}`), join(PROFILE, `exact-web-js${suffix}`)]);
+  });
+
+  it("uses the build an author's checkout made last", () => {
+    expect(profileOf(target({ [PROFILE]: 100, debug: 200 }), false)?.[1]).toBe(join('debug', `exact-web-js${suffix}`));
+    expect(profileOf(target({ [PROFILE]: 300, release: 100, debug: 200 }), false)?.[1]).toBe(join(PROFILE, `exact-web-js${suffix}`));
+  });
+
+  it('prefers the optimised of two built together', () => {
+    expect(profileOf(target({ debug: 100, [PROFILE]: 100 }), false)?.[1]).toBe(join(PROFILE, `exact-web-js${suffix}`));
   });
 });

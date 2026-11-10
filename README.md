@@ -59,7 +59,7 @@ For typed `.contract` imports, add this to `tsconfig.json`:
 
 ### Getting Exact
 
-The first `storybook dev` or `storybook build` fetches Exact from GitHub at the commit this version was tested against, installs its JavaScript dependencies and builds its Contract compiler with Cargo. That happens once per machine and took about a minute on an M-series Mac with a warm Cargo cache; a cold one takes a few minutes. Everything goes into `~/.cache/storybook-framework-exact` (about 3 GB, most of it Cargo's build output), never into your project.
+The first `storybook dev` or `storybook build` fetches Exact from GitHub at the commit this version was tested against, installs its JavaScript dependencies and builds its Contract compiler with Cargo. The compiler is built optimised (Exact's `host-dev` profile), because a story is built when you open it: it compiles a component in a few milliseconds where a debug build takes a few hundred. That happens once per machine and took a minute or two on an M-series Mac with a warm Cargo cache; a cold one takes a few minutes. Everything goes into `~/.cache/storybook-framework-exact` (about 2 GB, most of it Cargo's build output), never into your project.
 
 To do it ahead of time, in CI for example:
 
@@ -67,7 +67,7 @@ To do it ahead of time, in CI for example:
 npx storybook-exact setup
 ```
 
-To use an Exact checkout you already have, set `exactRoot` (or the `EXACT_ROOT` environment variable). It is used as it is; a checkout far from the pinned commit may not work.
+To use an Exact checkout you already have, set `exactRoot` (or the `EXACT_ROOT` environment variable). It is used as it is, with the compilers it last built (`cargo build --profile host-dev -p exact-web-js -p contract` for the fast ones); a checkout far from the pinned commit may not work.
 
 ```ts
 framework: { name: 'storybook-framework-exact', options: { exactRoot: '../exact' } },
@@ -80,6 +80,7 @@ framework: { name: 'storybook-framework-exact', options: { exactRoot: '../exact'
 | `typegen` | | Write `<name>.d.contract.ts` beside imported Contract files (default `true`) |
 | | `STORYBOOK_EXACT_CACHE` | Where the managed checkout and Bun are kept |
 | | `BUN` | The Bun to run Exact's build scripts with |
+| | `STORYBOOK_EXACT_WHOLE_BUILDS` | Set to `1` to run Exact's whole web build for every component (see [How it works](#how-it-works)) |
 
 ## Writing stories
 
@@ -179,8 +180,17 @@ npx storybook-exact types app
 Exact compiles a whole app, and its web runtime mounts one app per page. So a story is a small app:
 
 1. Importing a `.contract` file gives a description of each component, read from its source.
-2. When a story first renders, the component is built. A component with props gets a generated root that places it, reads its value props from one `resource` and sends each action prop's call to a `mutation`; a root component is built as it is. What each action prop is given is not in the source, so the generated root is compiled until Exact's compiler has said. Exact's own web build compiles the result.
+2. When a story first renders, the component is built. A component with props gets a generated root that places it, reads its value props from one `resource` and sends each action prop's call to a `mutation`; a root component is built as it is. What each action prop is given is not in the source, so the generated root is compiled until Exact's compiler has said. Exact's compiler compiles the result.
 3. The preview imports the build into the canvas and answers Exact's data seam: the args resource from the story's args, the action mutations to the story's handlers, and any other source from `parameters.exact.sources`.
+
+### What you wait for
+
+A component is built when you open one of its stories, and again after an edit, so the build is kept short:
+
+- **Exact's whole web build runs once per kind of component.** Around the app's own modules that build places about 130 runtime modules, the same for every component that uses the same features. The first component pays for them (about a second); every other is the compiler alone and a bundle: about 35 ms in the example here, and around 100 ms for a component of a 50-file app. The result is byte for byte what the whole build gives, and a test holds it to that. `STORYBOOK_EXACT_WHOLE_BUILDS=1` turns the reuse off.
+- **Builds are kept on disk**, under `node_modules/.cache`, so a server that starts again builds only what changed since.
+- **An edit rebuilds the stories you have open before the page asks**, the one on screen first, so a hot update shows in well under a second.
+- **Switching between stories that are built** takes about 50 ms: the stylesheet, a fresh copy of the runtime (10 to 25 ms) and the app's start. Storybook shows its spinner after 100 ms, so there is none.
 
 Builds happen in a copy of your app's Contract sources and assets kept under `node_modules/.cache`, so nothing is generated into your source tree except the optional type declarations, and your app's own `app.ts`, Rust module and native modules are not part of a story. A library is not copied: the build is an empty app that depends on it.
 

@@ -2,7 +2,7 @@
 // compiler built from it and a pinned Bun. Until that changes, this module fetches the commit this framework
 // was tested against from GitHub, builds its compiler once, and keeps both in a machine-wide cache.
 import { execFile, spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -28,8 +28,10 @@ export interface Toolchain {
   managed: boolean;
   /** The Bun that Exact's build scripts run on. */
   bun: string;
-  /** The Contract compiler's CLI (`contract build --json`). */
+  /** The Contract compiler's CLI (`contract build --json`), which says what is wrong with a file. */
   contract: string;
+  /** The web compiler (`exact-web-js js`), which writes an app's modules. */
+  compiler: string;
   /** The environment Exact's scripts run in. */
   env: NodeJS.ProcessEnv;
 }
@@ -156,11 +158,35 @@ async function prepare(root: string, managed: boolean, commit: string, log: Log)
   }
 
   const target = process.env.CARGO_TARGET_DIR ? resolve(process.env.CARGO_TARGET_DIR) : join(root, 'target');
-  const suffix = process.platform === 'win32' ? '.exe' : '';
-  const contract = join(target, 'debug', `contract${suffix}`);
-  if (!existsSync(contract) || !existsSync(join(target, 'debug', `exact-web-js${suffix}`))) {
+  let compilers = builtCompilers(target, managed);
+  if (!compilers) {
     log('Building the Contract compiler with Cargo (a few minutes, once per machine)');
-    await run('cargo', ['build', '-p', 'exact-web-js', '-p', 'contract'], { cwd: root, env });
+    await run('cargo', ['build', '--profile', PROFILE, '-p', 'exact-web-js', '-p', 'contract'], { cwd: root, env });
+    compilers = builtCompilers(target, true)!;
   }
-  return { root, managed, bun, contract, env };
+  // Exact's own build runs the compiler it is pointed at, when that one is up to date with its sources.
+  return { root, managed, bun, ...compilers, env: { ...env, EXACT_WEB_COMPILER: compilers.compiler } };
+}
+
+/**
+ * Exact's profile for its own development loop: optimised, without the link-time work of a release. Its
+ * compilers take a few milliseconds where a debug build's take a few hundred, and a story is built on demand.
+ */
+export const PROFILE = 'host-dev';
+
+/**
+ * The compilers already built under `target`. A checkout this framework owns is built with `PROFILE`; one
+ * the author gave is used as it is built: the build made last, which is the one made from its sources as
+ * they are, and of two made together the optimised one.
+ */
+export function builtCompilers(target: string, managed: boolean): { contract: string; compiler: string } | null {
+  const suffix = process.platform === 'win32' ? '.exe' : '';
+  let found: { contract: string; compiler: string; at: number } | null = null;
+  for (const profile of managed ? [PROFILE] : [PROFILE, 'release', 'debug']) {
+    const contract = join(target, profile, `contract${suffix}`);
+    const compiler = join(target, profile, `exact-web-js${suffix}`);
+    const at = statSync(compiler, { throwIfNoEntry: false })?.mtimeMs;
+    if (at !== undefined && existsSync(contract) && (!found || at > found.at)) found = { contract, compiler, at };
+  }
+  return found && { contract: found.contract, compiler: found.compiler };
 }

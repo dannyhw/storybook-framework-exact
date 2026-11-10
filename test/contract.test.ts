@@ -18,6 +18,7 @@ import {
   UNKNOWN,
   wrapperSource,
 } from '../src/node/contract.ts';
+import { builtCompilers } from '../src/node/toolchain.ts';
 import type { ComponentInfo } from '../src/types.ts';
 
 const exec = promisify(execFile);
@@ -364,7 +365,7 @@ describe('refineSignatures', () => {
 });
 
 // The wrappers compiled by the real compiler, where a checkout is at hand.
-const contract = process.env.EXACT_ROOT ? join(process.env.EXACT_ROOT, 'target/debug/contract') : null;
+const contract = process.env.EXACT_ROOT ? (builtCompilers(join(process.env.EXACT_ROOT, 'target'), false)?.contract ?? null) : null;
 
 describe.skipIf(!contract)('wrappers compile', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sb-exact-wrapper-'));

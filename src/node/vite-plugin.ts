@@ -93,7 +93,7 @@ export function exact(options: ExactPluginOptions = {}): Plugin {
       const file = id.split('?')[0]!;
       if (!file.endsWith('.contract')) return null;
       const source = readFileSync(file, 'utf8');
-      const { descriptors, sources } = builder.describe(file, parseComponents(source));
+      const { descriptors, sources } = builder.describe(file, parseComponents(source), !building);
       // An installed package's directory is not the author's to write in.
       if (options.typegen !== false && !file.split(/[\\/]/).includes('node_modules')) writeDeclarations(file, source);
       // Any Contract source of the app may be one this file uses: a change to it gives the module a new revision.
