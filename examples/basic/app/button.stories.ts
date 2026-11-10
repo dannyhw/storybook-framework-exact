@@ -8,10 +8,10 @@ const meta = {
   component: Button,
   tags: ['autodocs'],
   args: { label: 'Hello Exact', tone: 'primary', disabled: false, press: fn() },
-} satisfies Meta;
+} satisfies Meta<typeof Button>;
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Button>;
 
 export const Primary: Story = {};
 export const Secondary: Story = { args: { tone: 'secondary', label: 'Cancel' } };

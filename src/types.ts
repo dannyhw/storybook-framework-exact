@@ -22,8 +22,10 @@ export interface ComponentInfo {
  * A component imported from a `.contract` file: `import { Button } from './button.contract'`.
  * Set it as a story's `component`.
  */
-export interface ExactComponent extends ComponentInfo {
+export interface ExactComponent<TArgs = Record<string, any>> extends ComponentInfo {
   __exact: true;
+  /** Never set: carries the component's args in its type, for `Meta<typeof Button>`. */
+  readonly __args?: TArgs;
   /** Unique among the project's components: the name and a digest of its file's path. */
   id: string;
   /** Its file, relative to the app directory. */

@@ -7,10 +7,10 @@ const meta = {
   title: 'Counter',
   component: Counter,
   args: { start: 1, step: 2, changed: fn() },
-} satisfies Meta;
+} satisfies Meta<typeof Counter>;
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Counter>;
 
 export const Default: Story = {};
 

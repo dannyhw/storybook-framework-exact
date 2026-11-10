@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "storybook": "storybook dev -p 6116 --no-open",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "typecheck": "storybook-exact types app && tsc"
   },
   "devDependencies": {
     "@storybook/addon-docs": "^10.6.7",

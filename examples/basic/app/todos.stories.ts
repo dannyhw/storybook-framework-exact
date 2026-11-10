@@ -17,10 +17,10 @@ const store = (initial: Todo[]) => {
   };
 };
 
-const meta = { title: 'Todos', component: Todos } satisfies Meta;
+const meta = { title: 'Todos', component: Todos } satisfies Meta<typeof Todos>;
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Todos>;
 
 export const Empty: Story = { parameters: { exact: { sources: store([]) } } };
 

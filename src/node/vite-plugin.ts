@@ -4,7 +4,7 @@
 // The build is made when a story first needs it. In development the preview asks the dev server for the
 // component's manifest and the server builds then; in a static build every imported component is built and
 // emitted with the bundle.
-import { createReadStream, readFileSync } from 'node:fs';
+import { createReadStream, readFileSync, writeFileSync } from 'node:fs';
 import { extname } from 'node:path';
 
 import type { Plugin } from 'vite';
@@ -13,11 +13,26 @@ import type { ManifestError } from '../types.ts';
 import { ASSETS, Builder } from './build.ts';
 import { parseComponents } from './contract.ts';
 import { type Log, type ToolchainOptions, ensureToolchain } from './toolchain.ts';
+import { declarationFor, declarationPath, parseShapes } from './typegen.ts';
 
 const CONTENT_TYPES: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 
 export interface ExactPluginOptions extends ToolchainOptions {
   log?: Log;
+  /** Write `<name>.d.contract.ts` beside each imported Contract file. Default true. */
+  typegen?: boolean;
+}
+
+/** Write a Contract file's declarations, when they changed. */
+export function writeDeclarations(file: string, source = readFileSync(file, 'utf8')): void {
+  const text = declarationFor(file, parseComponents(source), parseShapes(source));
+  const path = declarationPath(file);
+  try {
+    if (readFileSync(path, 'utf8') === text) return;
+  } catch {
+    // not written yet
+  }
+  writeFileSync(path, text);
 }
 
 export function exact(options: ExactPluginOptions = {}): Plugin {
@@ -64,7 +79,9 @@ export function exact(options: ExactPluginOptions = {}): Plugin {
     async load(id) {
       const file = id.split('?')[0]!;
       if (!file.endsWith('.contract')) return null;
-      const { descriptors, sources } = builder.describe(file, parseComponents(readFileSync(file, 'utf8')));
+      const source = readFileSync(file, 'utf8');
+      const { descriptors, sources } = builder.describe(file, parseComponents(source));
+      if (options.typegen !== false) writeDeclarations(file, source);
       // Any Contract source of the app may be one this file uses: a change to it gives the module a new revision.
       for (const source of sources) this.addWatchFile(source);
 

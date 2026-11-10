@@ -22,11 +22,17 @@ export interface ExactRenderer extends WebRenderer {
   storyResult: ExactStoryResult;
 }
 
-/** Metadata to configure the stories for a component. */
-export type Meta<TArgs = Args> = ComponentAnnotations<ExactRenderer, TArgs> & { parameters?: ExactParameters & Record<string, any> };
+type ArgsOf<T> = T extends ExactComponent<infer TArgs> ? TArgs : T;
+type ExactAnnotations = { parameters?: ExactParameters & Record<string, any> };
 
-/** A story of a Contract component. */
-export type StoryObj<TArgs = Args> = StoryAnnotations<ExactRenderer, TArgs> & { parameters?: ExactParameters & Record<string, any> };
+/**
+ * Metadata to configure the stories for a component: `Meta<typeof Button>` checks args against the
+ * component's props, `Meta<{ label: string }>` against the args you name.
+ */
+export type Meta<TComponentOrArgs = Args> = ComponentAnnotations<ExactRenderer, ArgsOf<TComponentOrArgs>> & ExactAnnotations;
+
+/** A story of a Contract component: `StoryObj<typeof Button>`. Args the meta gives may be left out. */
+export type StoryObj<TComponentOrArgs = Args> = StoryAnnotations<ExactRenderer, ArgsOf<TComponentOrArgs>, Partial<ArgsOf<TComponentOrArgs>>> & ExactAnnotations;
 
 export type Decorator<TArgs = StrictArgs> = DecoratorFunction<ExactRenderer, TArgs>;
 export type Loader<TArgs = StrictArgs> = LoaderFunction<ExactRenderer, TArgs>;
@@ -35,6 +41,11 @@ export type Preview = ProjectAnnotations<ExactRenderer>;
 
 export interface FrameworkOptions extends ToolchainOptions {
   builder?: BuilderOptions;
+  /**
+   * Write `<name>.d.contract.ts` beside each imported Contract file, so its components and their args are
+   * typed (with `allowArbitraryExtensions` in tsconfig.json). Default true.
+   */
+  typegen?: boolean;
 }
 
 type FrameworkName = 'storybook-framework-exact';
