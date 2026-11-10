@@ -176,10 +176,13 @@ describe('syncShadow', () => {
     put('app/button.contract', BUTTON);
     syncShadow(app(), shadow());
     const mirrored = join(shadow(), 'button.contract');
-    const past = new Date(Date.now() - 60_000);
+    // A whole second: a file system keeps a time as it stores it, which is not always to the millisecond given.
+    const past = new Date(Math.floor(Date.now() / 1000) * 1000 - 60_000);
     utimesSync(mirrored, past, past);
+    const before = statSync(mirrored).mtimeMs;
     syncShadow(app(), shadow());
-    expect(statSync(mirrored).mtimeMs).toBe(past.getTime());
+    expect(statSync(mirrored).mtimeMs).toBe(before);
+    expect(Math.abs(before - past.getTime())).toBeLessThan(1000);
   });
 
   it('links the app’s assets rather than copying them', () => {
