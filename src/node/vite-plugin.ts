@@ -15,7 +15,11 @@ import { parseComponents } from './contract.ts';
 import { type Log, type ToolchainOptions, ensureToolchain } from './toolchain.ts';
 import { declarationFor, declarationPath, parseShapes } from './typegen.ts';
 
-const CONTENT_TYPES: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+const CONTENT_TYPES: Record<string, string> = {
+  '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.avif': 'image/avif', '.ico': 'image/x-icon', '.ttf': 'font/ttf',
+  '.otf': 'font/otf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg',
+};
 
 export interface ExactPluginOptions extends ToolchainOptions {
   log?: Log;
@@ -39,6 +43,7 @@ export function exact(options: ExactPluginOptions = {}): Plugin {
   const log = options.log ?? (() => {});
   const builder = new Builder(() => ensureToolchain(options, log), log);
   let building = false;
+  const emitted = new Set<string>();
 
   return {
     name: 'storybook-framework-exact',
@@ -51,6 +56,14 @@ export function exact(options: ExactPluginOptions = {}): Plugin {
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
         const path = decodeURIComponent((request.url ?? '').split('?')[0] ?? '');
+        // An app's images and fonts, which a build names as `assets/…` beside the page.
+        const asset = /^\/assets\/(.+)$/.exec(path);
+        const served = asset && builder.asset(asset[1]!);
+        if (served) {
+          response.setHeader('Content-Type', CONTENT_TYPES[extname(served).toLowerCase()] ?? 'application/octet-stream');
+          createReadStream(served).pipe(response);
+          return;
+        }
         const match = new RegExp(`/${ASSETS}/([^/]+)/(.+)$`).exec(path);
         if (!match || !builder.has(match[1]!)) return next();
         const [, id, rest] = match as unknown as [string, string, string];
@@ -81,7 +94,8 @@ export function exact(options: ExactPluginOptions = {}): Plugin {
       if (!file.endsWith('.contract')) return null;
       const source = readFileSync(file, 'utf8');
       const { descriptors, sources } = builder.describe(file, parseComponents(source));
-      if (options.typegen !== false) writeDeclarations(file, source);
+      // An installed package's directory is not the author's to write in.
+      if (options.typegen !== false && !file.split(/[\\/]/).includes('node_modules')) writeDeclarations(file, source);
       // Any Contract source of the app may be one this file uses: a change to it gives the module a new revision.
       for (const source of sources) this.addWatchFile(source);
 
@@ -91,6 +105,11 @@ export function exact(options: ExactPluginOptions = {}): Plugin {
           this.emitFile({ type: 'asset', fileName: descriptor.manifest, source: JSON.stringify(built.manifest) });
           this.emitFile({ type: 'asset', fileName: built.manifest.bundle, source: readFileSync(built.bundle) });
           this.emitFile({ type: 'asset', fileName: built.manifest.css, source: readFileSync(built.css) });
+        }
+        for (const asset of builder.assets()) {
+          if (emitted.has(asset.name)) continue;
+          emitted.add(asset.name);
+          this.emitFile({ type: 'asset', fileName: asset.name, source: readFileSync(asset.file) });
         }
       }
 

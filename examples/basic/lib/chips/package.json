@@ -1,0 +1,7 @@
+{
+  "name": "@example/chips",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A small Contract library, to show a library's components as stories.",
+  "exports": { ".": "./index.contract" }
+}

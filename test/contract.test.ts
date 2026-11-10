@@ -11,6 +11,7 @@ import {
   type Signatures,
   defaultFor,
   enumMembers,
+  needsBox,
   parseComponents,
   refineSignatures,
   typeNames,
@@ -46,6 +47,12 @@ component Picker
 `;
 
 describe('parseComponents', () => {
+  it('takes the first component of a file with routes for a root', () => {
+    const [nav, other] = parseComponents('routes nav\n  tab home "/"\n\ncomponent Nav\n  view\n    text "nav"\n\ncomponent Other\n  view\n    text "other"\n');
+    expect(nav).toMatchObject({ name: 'Nav', root: true });
+    expect(other).toMatchObject({ name: 'Other', root: false });
+  });
+
   it('reads the example Button: its props in order, its action, no slot, no data', () => {
     expect(parseComponents(example('button'))).toEqual([
       {
@@ -268,6 +275,11 @@ component Story
     expect(wrapperSource(card!, './card.contract')).toMatch(/ {4}Card\(title=args\.title, elevated=args\.elevated\)\n {6}text "Slot content"\n$/);
   });
 
+  it('places the component in a box when asked', () => {
+    const [card] = parseComponents(example('card'));
+    expect(wrapperSource(card!, './card.contract', {}, true)).toMatch(/ {2}view\n {4}column\n {6}Card\(title=args\.title, elevated=args\.elevated\)\n {8}text "Slot content"\n$/);
+  });
+
   it('writes no resource, shape or mutation for a component with no props', () => {
     const source = wrapperSource({ name: 'Logo', props: [], inject: [], slot: false, root: false }, './logo.contract');
     expect(source).not.toMatch(/resource|mutation|shape/);
@@ -300,6 +312,26 @@ describe('refineSignatures', () => {
       refineSignatures(picker!, signatures, [error('type-argument', `\`on_picked\` expects \`${UNKNOWN}\`, given \`${given}\``)]);
     }
     expect(signatures).toEqual({ picked: ['string', 'bool', 'Item'] });
+  });
+
+  it('takes one type a round for a prop: every call site reports the same parameter', () => {
+    // `changed(draft, ok, picked)` in three actions.
+    const signatures: Signatures = { picked: ['string', UNKNOWN, UNKNOWN] };
+    const mismatch = error('type-argument', `\`on_picked\` expects \`${UNKNOWN}\`, given \`bool\``);
+    expect(refineSignatures(picker!, signatures, [mismatch, mismatch, mismatch])).toBe(true);
+    expect(signatures).toEqual({ picked: ['string', 'bool', UNKNOWN] });
+  });
+
+  it('learns the arity of a prop bound to an event, and what the event carries', () => {
+    // `press=picked(i)` and `change=picked`
+    const signatures: Signatures = {};
+    const bound = error('analyze-action-arity', '`Picker.picked` requires 1 (or 2, the last its `InputEvent`) action parameter(s), but this binding to `on_picked` supplies 0 of its 0');
+    expect(refineSignatures(picker!, signatures, [bound])).toBe(true);
+    expect(signatures).toEqual({ picked: [UNKNOWN] });
+    expect(refineSignatures(picker!, signatures, [error('type-handler-payload', 'declare `a0: bool` in `on_picked`: a `change` here carries a `bool`')])).toBe(true);
+    expect(signatures).toEqual({ picked: ['bool'] });
+    // The same refusals again change nothing: they are then the component's own.
+    expect(refineSignatures(picker!, signatures, [error('type-handler-payload', 'declare `a0: bool` in `on_picked`')])).toBe(false);
   });
 
   it('leaves a parameter the compiler already typed', () => {
@@ -347,15 +379,62 @@ describe.skipIf(!contract)('wrappers compile', () => {
   /** What `Builder.inferSignatures` does, against the real compiler. */
   async function infer(component: ComponentInfo, specifier: string) {
     const signatures: Signatures = {};
+    let boxed = false;
     const wrapper = join(dir, `__story_${component.name}.contract`);
-    for (let attempt = 0; attempt < 8; attempt++) {
-      writeFileSync(wrapper, wrapperSource(component, specifier, signatures));
+    for (let attempt = 0; attempt < 16; attempt++) {
+      writeFileSync(wrapper, wrapperSource(component, specifier, signatures, boxed));
       const { ok, diagnostics } = await build(wrapper);
-      if (ok) return { signatures, ok };
-      if (!refineSignatures(component, signatures, diagnostics.filter((d) => d.severity === 'error'))) return { signatures, ok, diagnostics };
+      if (ok) return { signatures, ok, ...(boxed ? { boxed } : {}) };
+      const errors = diagnostics.filter((d) => d.severity === 'error');
+      const refined = refineSignatures(component, signatures, errors);
+      const box = !boxed && needsBox(errors);
+      if (box) boxed = true;
+      if (!refined && !box) return { signatures, ok, diagnostics };
     }
     return { signatures, ok: false };
   }
+
+  const EVENTS = `shape Item
+  id: string
+  done: bool
+
+component Events
+  props
+    items: Item[]
+    on: bool
+    pick: action
+    set: action
+    changed: action
+  state draft = ""
+  action edit(v: string)
+    draft = v
+    changed(draft, on)
+  action clear
+    draft = ""
+    changed(draft, on)
+  view
+    column
+      for i in items key=i.id
+        button press=pick(i)
+          text i.id
+      input type="checkbox" checked=on change=set aria-label="On"
+      input value=draft input=edit aria-label="Draft"
+      button press=clear
+        text "Clear"
+`;
+
+  it('with action props bound to events, and one called from two actions', async () => {
+    writeFileSync(join(dir, 'events.contract'), EVENTS);
+    const [events] = parseComponents(EVENTS);
+    expect(await infer(events!, './events.contract')).toEqual({ ok: true, signatures: { pick: ['Item'], set: ['bool'], changed: ['string', 'bool'] } });
+  });
+
+  it('with a view that starts with an `if`, in a box', async () => {
+    const source = 'component Maybe\n  props\n    shown: bool\n  view\n    if shown\n      text "here"\n';
+    writeFileSync(join(dir, 'maybe.contract'), source);
+    const [maybe] = parseComponents(source);
+    expect(await infer(maybe!, './maybe.contract')).toEqual({ ok: true, signatures: {}, boxed: true });
+  });
 
   for (const name of ['button', 'card', 'counter']) {
     it(`for the example ${name}`, async () => {

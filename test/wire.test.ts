@@ -9,21 +9,31 @@ const TODOS: WireType = ['[', TODO];
 const CHANGE: WireType = ['?', { count: 'n' }];
 
 describe('toWire', () => {
-  it('passes a leaf through, and carries a missing one as null', () => {
+  it('passes a leaf through', () => {
     expect(toWire('a', 's')).toBe('a');
     expect(toWire(0, 'n')).toBe(0);
     expect(toWire(false, 'b')).toBe(false);
-    expect(toWire(undefined, 's')).toBeNull();
-    // A source with no known type: the value as it is.
+    // A source with no known type, or a leaf this does not know: the value as it is.
     expect(toWire({ a: 1 }, undefined)).toEqual({ a: 1 });
+    expect(toWire(undefined, undefined)).toBeNull();
+    expect(toWire('2026-01-01', 'd')).toBe('2026-01-01');
+  });
+
+  it('refuses a leaf of the wrong type, naming it', () => {
+    expect(() => toWire(undefined, 's', 'args.label')).toThrow('args.label should be a string, and is undefined');
+    expect(() => toWire(42, 's', 'args.label')).toThrow('args.label should be a string, and is 42');
+    expect(() => toWire('3', 'n', 'args.count')).toThrow('args.count should be a number, and is "3"');
+    expect(() => toWire(Number.NaN, 'n', 'args.count')).toThrow('args.count should be a number');
+    expect(() => toWire(null, 'b', 'args.on')).toThrow('args.on should be a boolean, and is null');
   });
 
   it('carries a record as an array in its fields’ order, not the value’s', () => {
     expect(toWire({ done: true, title: 'Walk', id: '2' }, TODO)).toEqual(['2', 'Walk', true]);
   });
 
-  it('carries a missing field as null and drops a field the type does not have', () => {
-    expect(toWire({ id: '1', extra: 'x' }, TODO)).toEqual(['1', null, null]);
+  it('drops a field the type does not have, and refuses a missing one by its path', () => {
+    expect(toWire({ id: '1', title: 'Walk', done: false, extra: 'x' }, TODO)).toEqual(['1', 'Walk', false]);
+    expect(() => toWire({ id: '1' }, TODO, 'args.item')).toThrow('args.item.title should be a string, and is undefined');
   });
 
   it('carries a list of records', () => {
@@ -57,12 +67,13 @@ describe('toWire', () => {
   });
 
   it('says where a list was expected and what it got', () => {
-    expect(() => toWire({ id: '1' }, TODOS, 'todos')).toThrow('todos should be a list, and is object');
+    expect(() => toWire({ id: '1' }, TODOS, 'todos')).toThrow('todos should be a list, and is a record');
     expect(() => toWire(null, TODOS, 'todos')).toThrow('todos should be a list, and is null');
   });
 
   it('says where a record was expected, with its fields, and what it got', () => {
-    expect(() => toWire('nope', TODO, 'args')).toThrow('args should be a record with the fields id, title, done, and is string');
+    expect(() => toWire('nope', TODO, 'args')).toThrow('args should be a record with the fields id, title, done, and is "nope"');
+    expect(() => toWire([], TODO, 'args')).toThrow('args should be a record with the fields id, title, done, and is a list');
     expect(() => toWire(null, TODO)).toThrow('value should be a record with the fields id, title, done, and is null');
   });
 

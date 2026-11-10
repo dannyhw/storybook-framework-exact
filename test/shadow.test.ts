@@ -1,10 +1,10 @@
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { WRAPPER_PREFIX, appDirectory, syncShadow, unshadow } from '../src/node/shadow.ts';
+import { WRAPPER_PREFIX, appDirectory, libraryOf, syncShadow, unshadow } from '../src/node/shadow.ts';
 
 const BUTTON = `component Button
   props
@@ -39,6 +39,13 @@ describe('appDirectory', () => {
     put('app/app.json', '{}');
     put('app/lib/package.json', '{}');
     expect(appDirectory(put('app/lib/button.contract'))).toBe(join(root, 'app'));
+  });
+
+  it('takes a library kept inside an app for a library', () => {
+    put('app/app.json', '{}');
+    put('app/cards/package.json', JSON.stringify({ name: '@acme/cards', exports: { '.': './index.contract' } }));
+    expect(appDirectory(put('app/cards/parts/card.contract'))).toBe(join(root, 'app/cards'));
+    expect(appDirectory(put('app/screen.contract'))).toBe(join(root, 'app'));
   });
 
   it('is a library’s package directory when there is no app.json', () => {
@@ -185,16 +192,69 @@ describe('syncShadow', () => {
     expect(Math.abs(before - past.getTime())).toBeLessThan(1000);
   });
 
-  it('links the app’s assets rather than copying them', () => {
+  it('mirrors the app’s assets as files of the shadow’s own, which the compiler will read a font from', () => {
     put('app/app.json', '{}');
     put('app/button.contract', BUTTON);
     put('app/assets/logo.png', 'png');
+    put('app/assets/fonts/brand.ttf', 'ttf');
+    const first = syncShadow(app(), shadow());
+    const assets = join(shadow(), 'assets');
+    expect(lstatSync(assets).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(assets, 'logo.png'), 'utf8')).toBe('png');
+    expect(readFileSync(join(assets, 'fonts/brand.ttf'), 'utf8')).toBe('ttf');
+    expect(first.sources).toContain(join(app(), 'assets/logo.png'));
+    expect(syncShadow(app(), shadow()).revision).toBe(first.revision);
+  });
+
+  it('follows an asset that changed or went, and gives the build a new revision', () => {
+    put('app/app.json', '{}');
+    put('app/assets/logo.png', 'png');
+    put('app/assets/old.png', 'old');
+    const first = syncShadow(app(), shadow());
+    // As an editor saves: a new file in the old one's place.
+    rmSync(join(app(), 'assets/logo.png'));
+    put('app/assets/logo.png', 'new png');
+    rmSync(join(app(), 'assets/old.png'));
+    const second = syncShadow(app(), shadow());
+    expect(readFileSync(join(shadow(), 'assets/logo.png'), 'utf8')).toBe('new png');
+    expect(existsSync(join(shadow(), 'assets/old.png'))).toBe(false);
+    expect(second.revision).not.toBe(first.revision);
+  });
+
+  it('replaces the link to the assets an earlier version left', () => {
+    put('app/app.json', '{}');
+    put('app/assets/logo.png', 'png');
+    mkdirSync(shadow(), { recursive: true });
+    symlinkSync(join(app(), 'assets'), join(shadow(), 'assets'), 'dir');
     syncShadow(app(), shadow());
-    const linked = join(shadow(), 'assets');
-    expect(lstatSync(linked).isSymbolicLink()).toBe(true);
-    expect(readlinkSync(linked)).toBe(join(app(), 'assets'));
-    // A second sync leaves the link as it is.
-    expect(() => syncShadow(app(), shadow())).not.toThrow();
+    expect(lstatSync(join(shadow(), 'assets')).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(app(), 'assets/logo.png'), 'utf8')).toBe('png');
+  });
+
+  it('installs a library in an empty app instead of mirroring it, so that it is used as a package', () => {
+    put('app/package.json', JSON.stringify({ name: '@acme/cards', exports: { '.': './index.contract' } }));
+    put('app/index.contract', 'use Card from "./card.contract"\n');
+    put('app/card.contract', BUTTON);
+    put('app/cards.tamber', 'tokens');
+    const synced = syncShadow(app(), shadow());
+    expect(libraryOf(app())).toEqual({ name: '@acme/cards' });
+    expect(existsSync(join(shadow(), 'card.contract'))).toBe(false);
+    expect(existsSync(join(shadow(), 'cards.tamber'))).toBe(false);
+    expect(JSON.parse(readFileSync(join(shadow(), 'app.json'), 'utf8'))).toMatchObject({ start_url: '/' });
+    expect(realpathSync(join(shadow(), 'node_modules/@acme/cards'))).toBe(realpathSync(app()));
+    // Its sources are still what a build depends on.
+    expect(synced.sources).toContain(join(app(), 'card.contract'));
+    put('app/card.contract', `${BUTTON}// changed\n`);
+    expect(syncShadow(app(), shadow()).revision).not.toBe(synced.revision);
+  });
+
+  it('takes a package that exports no Contract, or has an app.json, for an app', () => {
+    put('app/package.json', JSON.stringify({ name: 'site', exports: { '.': './index.js' } }));
+    expect(libraryOf(app())).toBeNull();
+    put('app/package.json', JSON.stringify({ name: '@acme/cards', exports: './index.contract' }));
+    expect(libraryOf(app())).toEqual({ name: '@acme/cards' });
+    put('app/app.json', '{}');
+    expect(libraryOf(app())).toBeNull();
   });
 
   it('does not mirror a shadow kept inside the app into itself', () => {

@@ -1,0 +1,12 @@
+component Chip
+  params
+    fill: color = "chips.fill" control = "token" group = "Color" priority = 1 label = "Fill"
+    ink: color = "chips.ink" control = "token" group = "Color" priority = 2 label = "Ink"
+  props
+    label: string
+    selected: bool
+    toggle: action
+  view
+    row gap="chips.gap" padding="chips.pad" border-radius="chips.corner" background-color="param.fill" testId="chip"
+      input type="checkbox" checked=selected change=toggle aria-label=label testId="chip-toggle"
+      text label color="param.ink"

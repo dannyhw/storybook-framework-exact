@@ -74,19 +74,53 @@ const ABORTED = Symbol('aborted');
 
 /** The build's stylesheet, loaded before the app starts: its classes are the app's own, and its fonts are read at boot. */
 function stylesheet(href: string): Promise<void> {
-  const current = document.querySelector<HTMLLinkElement>('link[data-exact-style]');
-  if (current?.dataset.exactStyle === href) return Promise.resolve();
-  return new Promise((done) => {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.dataset.exactStyle = href;
+  const newest = [...document.querySelectorAll<HTMLLinkElement>('link[data-exact-style]')].at(-1);
+  if (newest?.dataset.exactStyle === href) return loaded.get(newest) ?? Promise.resolve();
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.dataset.exactStyle = href;
+  const done = new Promise<void>((resolve) => {
     link.onload = link.onerror = () => {
-      current?.remove();
-      done();
+      // Every stylesheet before this one is an earlier story's, one still loading included.
+      for (const other of document.querySelectorAll('link[data-exact-style]')) {
+        if (other === link) break;
+        other.remove();
+      }
+      resolve();
     };
-    link.href = href;
-    document.head.append(link);
   });
+  loaded.set(link, done);
+  link.href = href;
+  document.head.append(link);
+  return done;
+}
+const loaded = new WeakMap<HTMLLinkElement, Promise<void>>();
+
+const CANVAS = 'exact-canvas';
+
+/**
+ * Exact's page gives its root the height of the window, and an app's root may take all of it (`height="100%"`,
+ * as a screen with routes does). The canvas gives the root the same, or such an app would have no height.
+ * Not where the story is centred: there the canvas is as large as the story.
+ */
+function fillCanvas(canvas: Element): void {
+  if (!document.querySelector('style[data-exact-canvas]')) {
+    const style = document.createElement('style');
+    style.dataset.exactCanvas = '';
+    style.textContent = `body:not(.sb-main-centered) .${CANVAS}{display:grid;min-height:100%}`;
+    document.head.append(style);
+  }
+  canvas.classList.add(CANVAS);
+}
+
+/** The story's args as the app's args resource is answered. It throws, naming the arg, when one does not fit its prop. */
+function argsAnswer(story: ExactStoryResult, manifest: Manifest): unknown {
+  const { component, args } = story;
+  const values: Record<string, unknown> = {};
+  for (const field of [...component.props, ...component.inject]) {
+    if (field.type !== 'action') values[field.name] = args[field.name] ?? component.defaults[field.name];
+  }
+  return toWire(values, manifest.sourceTypes[ARGS_SOURCE]?.[1], 'args');
 }
 
 function bridge(mount: Mount) {
@@ -95,14 +129,7 @@ function bridge(mount: Mount) {
   return {
     answer(source: string, sent: unknown[] = []) {
       const [parameters, result] = types[source] ?? [[], undefined];
-      if (source === ARGS_SOURCE) {
-        const { args } = mount.story;
-        const values: Record<string, unknown> = {};
-        for (const field of [...component.props, ...component.inject]) {
-          if (field.type !== 'action') values[field.name] = args[field.name] ?? component.defaults[field.name];
-        }
-        return { v: toWire(values, result, 'args') };
-      }
+      if (source === ARGS_SOURCE) return { v: argsAnswer(mount.story, mount.manifest) };
       if (source.startsWith(ACTION_PREFIX)) {
         const handler = mount.story.args[source.slice(ACTION_PREFIX.length)];
         if (typeof handler === 'function') handler(...sent.map((value, index) => fromWire(value, parameters[index])));
@@ -123,10 +150,25 @@ function bridge(mount: Mount) {
 
 export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, storyContext, showMain, showError, forceRemount }, canvasElement) => {
   const story = storyFn();
+  if (!isExactComponent(story?.component)) {
+    throw new Error(
+      `Story "${storyContext.title}/${storyContext.name}" did not render a Contract component. A decorator returns what the story function gives it (it may change args: \`Story({ args })\`); it cannot return markup. To wrap a component, wrap it in Contract.`
+    );
+  }
   const signal = storyContext.abortSignal;
   const manifest = await unlessAborted(signal, manifestOf(story.component));
   if (manifest === ABORTED) return;
   const key = `${storyContext.id}@${manifest.version}`;
+
+  // The running app would refuse args that do not fit and keep its last ones, without a word.
+  if (manifest.sourceTypes[ARGS_SOURCE]) {
+    try {
+      argsAnswer(story, manifest);
+    } catch (error) {
+      showError({ title: `${story.component.name}'s args do not fit its props`, description: (error as Error).message });
+      return;
+    }
+  }
 
   // The same story on the same build: the running app asks for its args again. Its own state stays.
   if (live && live.canvas === canvasElement && live.key === key && !forceRemount && live.root.isConnected && live.handle) {
@@ -151,11 +193,15 @@ export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, s
   const superseded = () => live !== mount;
 
   const release = () => {
-    if (live === mount) live = null;
+    if (live === mount) {
+      live = null;
+      canvasElement.classList.remove(CANVAS);
+    }
     root.remove();
   };
 
   if ((await unlessAborted(signal, stylesheet(pageUrl(manifest.css)))) === ABORTED || superseded()) return release();
+  fillCanvas(canvasElement);
   canvasElement.replaceChildren(root);
   showMain();
 

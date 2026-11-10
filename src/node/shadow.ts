@@ -3,10 +3,13 @@
 // Exact builds an app directory, and a `use` may not leave it. A story's wrapper has to sit at that
 // directory's root to reach every component, and Exact's build would also pick up the app's own `app.ts`,
 // Rust module and native modules, none of which a story runs. So the build happens in a mirror kept in a
-// cache: the app's `.contract` and `.tamber` files, a trimmed `app.json`, and a link to its assets. Nothing
-// is written into the app's own tree.
+// cache: the app's `.contract` and `.tamber` files, a trimmed `app.json`, and its assets. Nothing is written
+// into the app's own tree.
+//
+// A library (a package whose `exports` name a Contract file) is not mirrored: Exact gives a package its
+// tokens only when it is reached as a package, so the shadow is an empty app that depends on it.
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, linkSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 import { cacheHome } from './toolchain.ts';
@@ -27,16 +30,19 @@ const DROPPED_MANIFEST_KEYS = [
 
 const digest = (text: string, length = 8) => createHash('sha256').update(text).digest('hex').slice(0, length);
 
-/** The app a Contract file belongs to: the nearest directory with an `app.json`, else with a `package.json` (a library), else its own. */
+/**
+ * What a Contract file is built as part of: the nearest app (a directory with an `app.json`) or library (a
+ * package that exports Contract), else the nearest package, else its own directory. A library kept inside
+ * an app is still a library: Exact gives it its tokens only as one.
+ */
 export function appDirectory(file: string): string {
   const start = dirname(resolve(file));
-  for (const marker of ['app.json', 'package.json']) {
-    for (let dir = start; ; dir = dirname(dir)) {
-      if (existsSync(join(dir, marker))) return dir;
-      if (dirname(dir) === dir) break;
-    }
+  let packaged: string | null = null;
+  for (let dir = start; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, 'app.json')) || libraryOf(dir)) return dir;
+    if (!packaged && existsSync(join(dir, 'package.json'))) packaged = dir;
+    if (dirname(dir) === dir) return packaged ?? start;
   }
-  return start;
 }
 
 /**
@@ -47,6 +53,23 @@ export function projectCache(appDir: string): string {
   for (let dir = appDir; ; dir = dirname(dir)) {
     if (existsSync(join(dir, 'node_modules'))) return join(dir, 'node_modules', '.cache', 'storybook-framework-exact', `${basename(appDir)}-${digest(appDir)}`);
     if (dirname(dir) === dir) return join(cacheHome(), 'projects', `${basename(appDir)}-${digest(appDir)}`);
+  }
+}
+
+export interface Library {
+  /** The name it is used by: `use Card from "@scope/cards"`. */
+  name: string;
+}
+
+/** The library an app directory is, when it is a package that exports Contract and not an app. */
+export function libraryOf(appDir: string): Library | null {
+  if (existsSync(join(appDir, 'app.json'))) return null;
+  try {
+    const { name, exports } = JSON.parse(readFileSync(join(appDir, 'package.json'), 'utf8')) as { name?: unknown; exports?: unknown };
+    const main = typeof exports === 'string' ? exports : (exports as Record<string, unknown> | null)?.['.'];
+    return typeof name === 'string' && typeof main === 'string' && main.endsWith('.contract') ? { name } : null;
+  } catch {
+    return null;
   }
 }
 
@@ -86,6 +109,47 @@ function writeIfChanged(path: string, text: string | Buffer): void {
   writeFileSync(path, text);
 }
 
+/** Every file under `dir`, whatever it is. */
+function files(dir: string, found: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) files(path, found);
+    else found.push(path);
+  }
+  return found;
+}
+
+/**
+ * The app's assets in the shadow, as hard links where the file system allows them and copies where it does
+ * not. A link to the directory would be cheaper, and the compiler refuses a font it reaches through one.
+ */
+function mirrorAssets(from: string, to: string, note: (file: string, stamp: string) => void): void {
+  const linked = lstatSync(to, { throwIfNoEntry: false });
+  if (linked?.isSymbolicLink()) unlinkSync(to);
+  const kept = new Set<string>();
+  const present = existsSync(from) && statSync(from).isDirectory();
+  for (const file of present ? files(from) : []) {
+    const rel = relative(from, file);
+    const source = statSync(file);
+    kept.add(rel);
+    note(file, `${rel}\0${source.size}\0${source.mtimeMs}\0`);
+    const target = join(to, rel);
+    const mirrored = statSync(target, { throwIfNoEntry: false });
+    // The same file (a hard link), or a copy made since the asset last changed.
+    if (mirrored && ((mirrored.ino === source.ino && mirrored.dev === source.dev) || (mirrored.size === source.size && mirrored.mtimeMs >= source.mtimeMs && mirrored.nlink === 1))) continue;
+    rmSync(target, { force: true });
+    mkdirSync(dirname(target), { recursive: true });
+    try {
+      linkSync(file, target);
+    } catch {
+      copyFileSync(file, target);
+    }
+  }
+  if (!existsSync(to)) return;
+  for (const file of files(to)) if (!kept.has(relative(to, file))) rmSync(file, { force: true });
+}
+
 export interface Synced {
   /** The app's Contract and design sources, absolute: what a watcher must watch. */
   sources: string[];
@@ -96,6 +160,7 @@ export interface Synced {
 /** Bring `shadow` up to date with `appDir`, and say what it holds. */
 export function syncShadow(appDir: string, shadow: string): Synced {
   mkdirSync(shadow, { recursive: true });
+  const library = libraryOf(appDir);
   const sources: string[] = [];
   const hash = createHash('sha256');
   const kept = new Set<string>();
@@ -105,8 +170,9 @@ export function syncShadow(appDir: string, shadow: string): Synced {
     const rel = relative(appDir, file);
     const content = readFileSync(file);
     sources.push(file);
-    kept.add(rel);
     hash.update(rel).update('\0').update(content).update('\0');
+    if (library) return;
+    kept.add(rel);
     writeIfChanged(join(shadow, rel), content);
   });
   const manifest = shadowManifest(appDir);
@@ -121,15 +187,24 @@ export function syncShadow(appDir: string, shadow: string): Synced {
   });
   for (const file of stale) rmSync(file, { force: true });
 
-  const assets = join(appDir, 'assets');
-  const linked = join(shadow, 'assets');
-  if (existsSync(assets) && statSync(assets).isDirectory() && !lstatSync(linked, { throwIfNoEntry: false })) {
-    symlinkSync(assets, linked, 'dir');
+  if (library) {
+    const installed = join(shadow, 'node_modules', library.name);
+    if (!lstatSync(installed, { throwIfNoEntry: false })) {
+      mkdirSync(dirname(installed), { recursive: true });
+      symlinkSync(appDir, installed, 'dir');
+    }
+  } else {
+    mirrorAssets(join(appDir, 'assets'), join(shadow, 'assets'), (file, stamp) => {
+      sources.push(file);
+      hash.update(stamp);
+    });
   }
   return { sources: sources.sort(), revision: hash.digest('hex').slice(0, 16) };
 }
 
 /** A path inside the shadow as the author knows it, for a compiler message. */
 export function unshadow(text: string, appDir: string, shadow: string): string {
-  return text.split(shadow + sep).join(appDir + sep).split(shadow).join(appDir);
+  const library = libraryOf(appDir);
+  const direct = library ? text.split(join(shadow, 'node_modules', library.name)).join(appDir) : text;
+  return direct.split(shadow + sep).join(appDir + sep).split(shadow).join(appDir);
 }

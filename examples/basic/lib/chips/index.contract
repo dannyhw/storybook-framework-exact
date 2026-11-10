@@ -1,0 +1,2 @@
+// What the package exports: a story can place only these.
+use Chip from "./chip.contract"

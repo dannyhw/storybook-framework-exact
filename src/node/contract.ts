@@ -27,12 +27,14 @@ export function parseComponents(source: string): ComponentInfo[] {
   let current: ComponentInfo | null = null;
   let sectionIndent = -1;
   let section: string | null = null;
+  let routes = false;
   for (const raw of source.split(/\r?\n/)) {
     const line = uncommented(raw);
     if (!line.trim()) continue;
     const indent = line.length - line.trimStart().length;
     const text = line.trim();
     if (indent === 0) {
+      if (/^routes\b/.test(text)) routes = true;
       const name = /^component\s+([A-Za-z_]\w*)/.exec(text)?.[1];
       current = name ? { name, props: [], inject: [], slot: false, root: false } : null;
       if (current) components.push(current);
@@ -52,6 +54,8 @@ export function parseComponents(source: string): ComponentInfo[] {
       if (field) current[section].push({ name: field[1]!, type: field[2]!.trim() });
     }
   }
+  // `routes` belongs to an app's root file, and its first component is that root.
+  if (routes && components[0]) components[0].root = true;
   return components;
 }
 
@@ -98,7 +102,7 @@ export const UNKNOWN = 'StoryUnknown';
  * one resource, and sends each action prop's call to a mutation. Both cross Exact's data seam, where the
  * preview answers: an args change asks the resource again in the running app, with no rebuild.
  */
-export function wrapperSource(component: ComponentInfo, specifier: string, signatures: Signatures = {}): string {
+export function wrapperSource(component: ComponentInfo, specifier: string, signatures: Signatures = {}, boxed = false): string {
   const values = [...component.props.filter((p) => !isAction(p)), ...component.inject];
   const actions = component.props.filter(isAction);
   const used = new Set([component.name]);
@@ -120,8 +124,10 @@ export function wrapperSource(component: ComponentInfo, specifier: string, signa
     lines.push(`  action ${handlerName(a.name)}${types.length ? `(${parameters})` : ''}`, `    send did_${a.name} = ${actionSource(a.name)}(${types.map((_, i) => `a${i}`).join(', ')})`);
   }
   const passed = component.props.map((p) => `${p.name}=${isAction(p) ? handlerName(p.name) : `args.${p.name}`}`).join(', ');
-  lines.push('  view', `    ${component.name}(${passed})`);
-  if (component.slot) lines.push('      text "Slot content"');
+  // A component whose view starts with an `if`, `for` or `match` cannot be a view's root: it goes in a box.
+  const indent = boxed ? '      ' : '    ';
+  lines.push('  view', ...(boxed ? ['    column'] : []), `${indent}${component.name}(${passed})`);
+  if (component.slot) lines.push(`${indent}  text "Slot content"`);
   return `${lines.join('\n')}\n`;
 }
 
@@ -134,28 +140,60 @@ export interface Diagnostic {
   col?: number;
 }
 
+/** The compiler's refusal of a view's root that is an `if`, `for` or `match`: the wrapper places the component in a box. */
+export const needsBox = (errors: Diagnostic[]) => errors.some((error) => error.id === 'lower-root-region');
+
 /**
- * One step of inferring the action props' signatures. An action prop is typed by what the component passes
+ * One step of inferring the action props' signatures. An action prop is typed by what the component gives
  * it, which the source does not say, so the wrapper starts with handlers that take nothing and the compiler's
- * refusals say what each is given: `type-call-arity` its count, then `type-argument` each type in turn, as
- * the first parameter still `UNKNOWN` is the first one a call site does not match.
+ * refusals say what each is given:
+ *
+ * - its count: `type-call-arity` where the component calls it (`changed(count)`), `analyze-action-arity`
+ *   where it binds it to an event (`press=pick(item)`, `change=set`);
+ * - then each type: `type-argument` for the first parameter a call site does not match, which is the first
+ *   one still `UNKNOWN`, and `type-handler-payload` for what an event carries.
+ *
  * Returns whether a refusal changed `signatures`; false means the errors are not about the handlers.
  */
 export function refineSignatures(component: ComponentInfo, signatures: Signatures, errors: Diagnostic[]): boolean {
   let changed = false;
+  // Each call site reports its own first mismatch, and they are all about the same parameter.
+  const typed = new Set<string>();
+  const actionProp = (handler: string | undefined) => {
+    const prop = handler?.replace(/^on_/, '');
+    return prop && component.props.some((p) => p.name === prop && isAction(p)) ? prop : null;
+  };
+  const sized = (prop: string, count: number) => {
+    if (signatures[prop]?.length === count) return;
+    signatures[prop] = Array.from({ length: count }, () => UNKNOWN);
+    changed = true;
+  };
   for (const error of errors) {
-    const arity = error.id === 'type-call-arity' ? /`(\w+)` takes \d+ argument\(s\), given (\d+)/.exec(error.message) : null;
-    const type = error.id === 'type-argument' ? /`(\w+)` expects `([^`]+)`, given `([^`]+)`/.exec(error.message) : null;
-    // The compiler names the wrapper's handler, which the component's call reached.
-    const prop = (arity ?? type)?.[1]?.replace(/^on_/, '');
-    if (!prop || !component.props.some((p) => p.name === prop && isAction(p))) continue;
-    if (arity) {
-      signatures[prop] = Array.from({ length: Number(arity[2]) }, () => UNKNOWN);
-      changed = true;
-    } else if (type && type[2] === UNKNOWN && signatures[prop]) {
-      const at = signatures[prop].indexOf(UNKNOWN);
-      if (at >= 0) {
-        signatures[prop][at] = type[3]!;
+    if (error.id === 'type-call-arity') {
+      const match = /`(\w+)` takes \d+ argument\(s\), given (\d+)/.exec(error.message);
+      const prop = actionProp(match?.[1]);
+      if (prop) sized(prop, Number(match![2]));
+    } else if (error.id === 'analyze-action-arity') {
+      // "requires 1 (or 2, the last its `MouseEvent`) action parameter(s), but this binding to `on_pick` supplies 0"
+      const match = /requires (\d+)\b.*? action parameter\(s\), but this binding to `(\w+)`/.exec(error.message);
+      const prop = actionProp(match?.[2]);
+      if (prop) sized(prop, Number(match![1]));
+    } else if (error.id === 'type-argument') {
+      const match = /`(\w+)` expects `([^`]+)`, given `([^`]+)`/.exec(error.message);
+      const prop = actionProp(match?.[1]);
+      const at = prop && match![2] === UNKNOWN && !typed.has(prop) ? (signatures[prop]?.indexOf(UNKNOWN) ?? -1) : -1;
+      if (prop && at >= 0) {
+        signatures[prop]![at] = match![3]!;
+        typed.add(prop);
+        changed = true;
+      }
+    } else if (error.id === 'type-handler-payload') {
+      // "declare `a0: bool` in `on_set`"
+      const match = /declare `a(\d+): ([^`]+)` in `(\w+)`/.exec(error.message);
+      const prop = actionProp(match?.[3]);
+      const at = Number(match?.[1]);
+      if (prop && signatures[prop] && at < signatures[prop].length && signatures[prop][at] !== match![2]) {
+        signatures[prop][at] = match![2]!;
         changed = true;
       }
     }

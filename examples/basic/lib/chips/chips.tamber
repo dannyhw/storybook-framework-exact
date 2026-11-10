@@ -1,0 +1,10 @@
+// The library's tokens. Exact gives them to its components only when the library is used as a package,
+// which is how a story builds it.
+tamber chips
+
+theme
+  chips.fill = #7c3aed
+  chips.ink = #ffffff
+  chips.corner: length = 999px
+  chips.gap: length = 8px
+  chips.pad: length = 8px

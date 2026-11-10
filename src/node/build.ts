@@ -7,9 +7,9 @@ import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 import type { ComponentInfo, ExactComponent, Manifest, WireType } from '../types.ts';
-import { type Diagnostic, type Signatures, defaultFor, isAction, refineSignatures, wrapperSource } from './contract.ts';
+import { type Diagnostic, type Signatures, defaultFor, isAction, needsBox, refineSignatures, wrapperSource } from './contract.ts';
 import { withLock } from './lock.ts';
-import { WRAPPER_PREFIX, appDirectory, projectCache, syncShadow, unshadow } from './shadow.ts';
+import { WRAPPER_PREFIX, appDirectory, libraryOf, projectCache, syncShadow, unshadow } from './shadow.ts';
 import type { Log, Toolchain } from './toolchain.ts';
 
 const exec = promisify(execFile);
@@ -134,6 +134,39 @@ export class Builder {
     return this.registered.has(id);
   }
 
+  /** The directories of the apps whose components are registered. */
+  private apps(): string[] {
+    return [...new Set([...this.registered.values()].map((known) => known.appDir))];
+  }
+
+  /** The file an app serves as `assets/<rest>`, or null. Of two apps with the same asset, the first registered wins. */
+  asset(rest: string): string | null {
+    for (const appDir of this.apps()) {
+      const base = join(appDir, 'assets');
+      const path = join(base, rest);
+      if (path.startsWith(base + sep) && statSync(path, { throwIfNoEntry: false })?.isFile()) return path;
+    }
+    return null;
+  }
+
+  /** Every asset of the registered apps, by the path a page asks for it. */
+  assets(): { name: string; file: string }[] {
+    const found = new Map<string, string>();
+    const collect = (base: string, dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name.startsWith('.')) continue;
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) collect(base, path);
+        else if (!found.has(posix(relative(base, path)))) found.set(posix(relative(base, path)), path);
+      }
+    };
+    for (const appDir of this.apps()) {
+      const base = join(appDir, 'assets');
+      if (statSync(base, { throwIfNoEntry: false })?.isDirectory()) collect(base, base);
+    }
+    return [...found].map(([name, file]) => ({ name: `assets/${name}`, file }));
+  }
+
   /** The build of a registered component, made when its sources changed since the last one. */
   build(id: string): Promise<Built> {
     const known = this.registered.get(id);
@@ -164,15 +197,20 @@ export class Builder {
     const started = Date.now();
     const { component, file, appDir } = known;
     const toolchain = await this.toolchain();
-    const explain = (error: unknown) => new Error(unshadow(failure(error), appDir, shadow));
+    // An error may be in the generated root, a file the author does not have.
+    const generated = join(appDir, `${WRAPPER_PREFIX}${id}.contract`);
+    const explain = (error: unknown) => new Error(unshadow(failure(error), appDir, shadow).split(generated).join(`[the story generated for ${component.name}]`));
     const mirrored = join(shadow, relative(appDir, file));
 
+    const library = libraryOf(appDir);
     let entry = mirrored;
     if (component.root) {
-      if (!known.first) throw new Error(`${component.name} owns data (a resource, mutation or task), which only a file's first component may: it cannot be built as a story.`);
+      if (!known.first) throw new Error(`${component.name} owns data or routes (a resource, mutation, task or \`routes\`), which only a file's first component may: it cannot be built as a story.`);
+      if (library) throw new Error(`${component.name} owns data or routes, which only an app's root may, and ${library.name} is a library: it cannot be built as a story.`);
     } else {
       entry = join(shadow, `${WRAPPER_PREFIX}${id}.contract`);
-      await this.inferSignatures(toolchain, component, `./${posix(relative(shadow, mirrored))}`, entry).catch((error) => {
+      // A library's component is used as the library's users use it: by the package's name, which is what gives it the package's tokens.
+      await this.inferSignatures(toolchain, component, library ? library.name : `./${posix(relative(shadow, mirrored))}`, entry).catch((error) => {
         throw explain(error);
       });
     }
@@ -198,7 +236,9 @@ export class Builder {
     });
 
     const code = readFileSync(bundled);
-    const style = readFileSync(join(out, 'style.css'));
+    // A stylesheet names a font relative to itself and a view names an image relative to the page. The
+    // app's assets are served once, beside the page, so the stylesheet's are pointed there.
+    const style = Buffer.from(readFileSync(join(out, 'style.css'), 'utf8').replace(/url\((["']?)assets\//g, `url($1${'../'.repeat(3)}assets/`));
     const version = digest(Buffer.concat([code, style]));
     const serve = join(cache, 'serve', id);
     // A page may still be loading a version before this one (this server's, or another's on the same
@@ -213,7 +253,7 @@ export class Builder {
     const published = join(serve, version);
     mkdirSync(published, { recursive: true });
     cpSync(bundled, join(published, 'bundle.js'));
-    cpSync(join(out, 'style.css'), join(published, 'style.css'));
+    writeFileSync(join(published, 'style.css'), style);
 
     const manifest: Manifest = {
       version,
@@ -226,13 +266,16 @@ export class Builder {
     return { manifest, bundle: join(published, 'bundle.js'), css: join(published, 'style.css') };
   }
 
-  /** Write the wrapper, asking the compiler what each action prop is given until it compiles. */
+  /**
+   * Write the wrapper, asking the compiler what it needs until it compiles: what each action prop is given,
+   * and whether the component has to sit in a box.
+   */
   private async inferSignatures(toolchain: Toolchain, component: ComponentInfo, specifier: string, entry: string): Promise<void> {
     const signatures: Signatures = {};
+    let boxed = false;
     // One compile for each handler's count, one for each parameter of the longest, and the one that passes.
-    for (let attempt = 0; attempt < 12; attempt++) {
-      writeFileSync(entry, wrapperSource(component, specifier, signatures));
-      if (!component.props.some(isAction)) return;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      writeFileSync(entry, wrapperSource(component, specifier, signatures, boxed));
       const outcome = await exec(toolchain.contract, ['build', '--json', entry], { env: toolchain.env, maxBuffer: 64 * 1024 * 1024 }).then(
         (ok) => ({ failed: false, stdout: ok.stdout, stderr: ok.stderr }),
         (error: { stdout?: string; stderr?: string }) => ({ failed: true, stdout: error.stdout ?? '', stderr: error.stderr ?? '' })
@@ -245,8 +288,11 @@ export class Builder {
         throw new Error(outcome.stderr || outcome.stdout);
       }
       const errors = diagnostics.filter((d) => d.severity === 'error');
-      // Anything the handlers did not cause is the component's own error: the build reports it in full.
-      if (!refineSignatures(component, signatures, errors)) return;
+      const refined = refineSignatures(component, signatures, errors);
+      const box = !boxed && needsBox(errors);
+      if (box) boxed = true;
+      // Anything the wrapper did not cause is the component's own error: the build reports it in full.
+      if (!refined && !box) return;
     }
     throw new Error(`Could not work out what ${component.name}'s action props are given.`);
   }
