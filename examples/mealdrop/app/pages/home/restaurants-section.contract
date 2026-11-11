@@ -1,0 +1,30 @@
+use Carousel, CarouselItem from "../../components/carousel.contract"
+use PageSection from "../../components/page-section.contract"
+use RestaurantCard from "../../components/restaurant-card.contract"
+use Restaurant from "../../data/shapes.contract"
+
+// A titled carousel of restaurants, three at a time on wide pages and one on a phone; three skeleton cards
+// while `isLoading`. A card opens its restaurant: `navigate` with its path.
+component RestaurantsSection
+  props
+    title: string
+    restaurants: Restaurant[]
+    isLoading: bool
+    compact: bool
+    navigate: action
+  derive perView = compact ? 1 : 3
+  view
+    PageSection(title=title, topButtonLabel="", compact=compact, topButtonPress=navigate("/categories"))
+      if isLoading
+        Carousel(name="restaurants-loading", count=3, perView=perView, compact=compact)
+          for i in range(3) key=i
+            CarouselItem(name="restaurants-loading", index=i, perView=perView)
+              RestaurantCard(name="", rating=0, specialty="", photoUrl="", isClosed=false, categories=[],
+                isLoading=true, isNew=false, press=navigate(""))
+      else
+        Carousel(name="restaurants", count=restaurants.length, perView=perView, compact=compact)
+          for restaurant, i in restaurants key=restaurant.id
+            CarouselItem(name="restaurants", index=i, perView=perView)
+              RestaurantCard(name=restaurant.name, rating=restaurant.rating, specialty=restaurant.specialty,
+                photoUrl=restaurant.photoUrl, isClosed=restaurant.isClosed, categories=restaurant.categories,
+                isLoading=false, isNew=restaurant.isNew, press=navigate(`/restaurants/${restaurant.id}`))

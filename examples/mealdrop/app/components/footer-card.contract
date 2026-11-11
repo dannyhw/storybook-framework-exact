@@ -1,0 +1,28 @@
+use Label from "./typography.contract"
+use Link from "./link.contract"
+use InverseHeading from "./typography.contract"
+
+shape FooterLink
+  name: string
+  href: string
+  external: bool
+
+// A titled column of the footer: a list of links, or whatever its slot holds. It sits on the footer's
+// dark surface, so its text is light. A link calls `navigate` with its `href`, for the page to route.
+component FooterCard
+  props
+    title: string
+    links: FooterLink[]
+    navigate: action
+  slot
+  view
+    column color="text.on-inverse" testId=`footer-card-${title}`
+      column margin-bottom="space.xs"
+        InverseHeading(label=title, level=2, size=4)
+      if links.length > 0
+        column role="list"
+          for l in links key=l.name
+            row role="listitem" margin-bottom="space.xxs"
+              Link(href=l.href, external=l.external, press=navigate(l.href))
+                Label(label=l.name, size=18, weight=400)
+      children

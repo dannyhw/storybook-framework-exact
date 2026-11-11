@@ -1,0 +1,63 @@
+use Button from "../../components/button.contract"
+use LeadHeading from "../../components/typography.contract"
+
+keyframes bannerSteam
+  0% opacity=0 translate="0px 6px"
+  50% opacity=1
+  100% opacity=0 translate="0px -10px"
+
+// The home page's opening band: a call to browse, over a drawing of a table laid with food. `compact` is
+// a phone: a shorter band and a smaller drawing.
+component Banner
+  props
+    compact: bool
+    navigate: action
+  view
+    column position="relative" box-sizing="border-box" width="100%" height=(compact ? 410 : 566)
+      padding-top=(compact ? 60 : 96) overflow="hidden" background-color="surface.info" testId="banner"
+      column position="relative" z-index=1 align-items="center" text-align="center"
+        row margin-bottom=40 padding="0 32px"
+          LeadHeading(lead="Hungry?", label="find your next meal", level=2)
+        Button(label="View all restaurants", icon="none", clear=false, round=false, large=false, disabled=false,
+          press=navigate("/categories"))
+      row position="absolute" left=0 right=0 bottom=0 justify-content="center"
+        TableIllustration(width=(compact ? 560 : 1000))
+
+// Stands in for Mealdrop's illustration (not licensed for reuse): a table on a hill, with a burger, a drink,
+// a steaming bowl and fries.
+component TableIllustration
+  props
+    width: number
+  view
+    svg width=width min-width=width height=(width * 0.353) viewBox="0 0 1000 353" fill="none" stroke-linecap="round"
+      aria-hidden="true"
+      path d="M0 353C120 280 330 222 500 222C670 222 880 280 1000 353Z" fill="illustration.hill"
+      // The table.
+      rect x=250 y=246 width=500 height=14 rx=7 fill="palette.neutral-800"
+      rect x=292 y=258 width=12 height=95 fill="palette.neutral-800"
+      rect x=696 y=258 width=12 height=95 fill="palette.neutral-800"
+      // A burger.
+      rect x=300 y=226 width=104 height=20 rx=9 fill="illustration.bun"
+      rect x=296 y=210 width=112 height=18 rx=9 fill="illustration.patty"
+      path d="M298 210h108l-14 12-14-8-16 10-16-10-16 10-16-10-16 8z" fill="illustration.cheese"
+      path d="M294 204c10 6 18-4 28 2s18-4 28 2 18-4 28 2 18-4 28 2v6h-112z" fill="palette.brand-dark-400"
+      path d="M296 200a56 44 0 0 1 112 0z" fill="illustration.bun"
+      ellipse cx=330 cy=180 rx=4 ry=2.5 fill="palette.neutral-0"
+      ellipse cx=352 cy=172 rx=4 ry=2.5 fill="palette.neutral-0"
+      ellipse cx=374 cy=182 rx=4 ry=2.5 fill="palette.neutral-0"
+      // A drink with a straw.
+      path d="M446 150h52l-7 96h-38z" fill="palette.red-300"
+      rect x=440 y=142 width=64 height=10 rx=5 fill="palette.neutral-0"
+      path d="M480 142l12-40h16" stroke="palette.neutral-900" stroke-width=6
+      // A steaming bowl.
+      path d="M530 204a66 42 0 0 0 132 0z" fill="palette.blue-400"
+      rect x=522 y=198 width=148 height=10 rx=5 fill="palette.blue-700"
+      g animation="bannerSteam 2.4s ease-in-out infinite"
+        path d="M572 186c-12-14 12-22 0-38" stroke="palette.neutral-0" stroke-width=5
+        path d="M598 182c-12-14 12-22 0-38" stroke="palette.neutral-0" stroke-width=5
+        path d="M624 186c-12-14 12-22 0-38" stroke="palette.neutral-0" stroke-width=5
+      // Fries.
+      rect x=684 y=176 width=10 height=44 rx=4 fill="illustration.cheese"
+      rect x=698 y=168 width=10 height=52 rx=4 fill="illustration.cheese"
+      rect x=712 y=180 width=10 height=40 rx=4 fill="illustration.cheese"
+      path d="M676 200h56l-8 46h-40z" fill="palette.red-500"

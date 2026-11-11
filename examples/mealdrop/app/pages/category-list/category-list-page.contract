@@ -1,0 +1,31 @@
+use PageTemplate from "../../templates/page-template.contract"
+use Container from "../../components/container.contract"
+use TopBanner from "../../components/top-banner.contract"
+use Body, Heading from "../../components/typography.contract"
+use CategoryList from "./category-list.contract"
+use CartItem, Category from "../../data/shapes.contract"
+
+// Every category, under a short invitation to pick one.
+component CategoryListPage
+  props
+    categories: Category[]
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+  view
+    PageTemplate(type="default", cartItems=cartItems, currency=currency, compact=compact, navigate=navigate, saveItem=saveItem,
+      removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      column min-width=0 testId="category-list-page"
+        TopBanner(title="Categories", level=1, photoUrl="")
+        Container(desktopOnly=false, compact=compact)
+          row margin-top=72 margin-bottom="space.xs"
+            Heading(label="What’s on the menu?", level=2)
+          row margin-bottom=40 max-width=900
+            Body(label="Feeling like having pizza? How about Sushi? Satisfy your cravings with a few quick clicks and enjoy the world of delivery! Check a great selection of restaurants by selecting a category below.",
+              size="M", weight="regular")
+          CategoryList(categories=categories, compact=compact, navigate=navigate)

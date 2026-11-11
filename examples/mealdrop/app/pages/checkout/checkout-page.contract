@@ -1,0 +1,52 @@
+use Heading from "../../components/typography.contract"
+use Container from "../../components/container.contract"
+use OrderSummary from "../../components/order-summary.contract"
+use PageTemplate from "../../templates/page-template.contract"
+use CartItem from "../../data/shapes.contract"
+use MultiStepForm from "./multi-step-form.contract"
+
+// The checkout in the basic page template (the logo only, no footer).
+component CheckoutPage
+  props
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+    // The contact and delivery details: firstName, lastName, email, phone, address, postcode, city.
+    completeOrder: action
+  view
+    PageTemplate(type="basic", cartItems=cartItems, currency=currency, compact=compact, navigate=navigate, saveItem=saveItem,
+      removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      CheckoutPageBody(cartItems=cartItems, currency=currency, compact=compact, completeOrder=completeOrder)
+
+// The page itself: a highlighted band with the title, and the form and the order pulled up over it. On a
+// phone the order comes first, above the form.
+component CheckoutPageBody
+  props
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    completeOrder: action
+  view
+    column flex=1 padding-bottom=84 background-color="surface.tinted-page" testId="checkout-page"
+      column padding-top=(compact ? 52 : 84) min-height=(compact ? 260 : 300) margin-bottom=16 box-sizing="border-box"
+        background-color="surface.highlight"
+        Container(desktopOnly=false, compact=compact)
+          Heading(label="Checkout", level=2)
+      column margin-top=-160
+        Container(desktopOnly=false, compact=compact)
+          if compact
+            column align-items="stretch"
+              column width="100%" margin-bottom=64
+                OrderSummary(cartItems=cartItems, currency=currency)
+              MultiStepForm(complete=completeOrder)
+          else
+            row justify-content="center" align-items="flex-start"
+              row flex=1 min-width=0 margin-right="space.sm"
+                MultiStepForm(complete=completeOrder)
+              column width=420 flex-shrink=0 margin-bottom=64
+                OrderSummary(cartItems=cartItems, currency=currency)

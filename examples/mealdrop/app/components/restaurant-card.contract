@@ -1,0 +1,87 @@
+use Badge from "./badge.contract"
+use Body, Label, SizedHeading from "./typography.contract"
+use Card from "./card.contract"
+use Review from "./review.contract"
+use Skeleton from "./skeleton.contract"
+
+// The open card is a link: the design's focus ring, around the card's rounded corners.
+style Opener
+  position="relative" width="100%" border-radius="radius.card" outline="none" cursor="pointer"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// A restaurant in a list: its photo, name, rating, specialty and cuisines. A new one has a flag in the
+// corner; a closed one is greyed, says so, and does not open. `isLoading` shows its skeleton instead.
+component RestaurantCard
+  props
+    name: string
+    rating: number
+    specialty: string
+    photoUrl: string
+    isClosed: bool
+    categories: string[]
+    isLoading: bool
+    isNew: bool
+    press: action
+  view
+    column width="100%" max-width=500
+      if isLoading
+        RestaurantCardSkeleton()
+      else
+        if isClosed
+          column position="relative" width="100%" role="group" aria-label=name testId="restaurant-card"
+            RestaurantCardBody(name=name, rating=rating, specialty=specialty, photoUrl=photoUrl, isClosed=true,
+              categories=categories, isNew=isNew)
+        else
+          column class=Opener press=press role="link" tabindex=0 aria-label=name
+            testId="restaurant-card"
+            RestaurantCardBody(name=name, rating=rating, specialty=specialty, photoUrl=photoUrl, isClosed=false,
+              categories=categories, isNew=isNew)
+
+// What the card shows, open or closed.
+component RestaurantCardBody
+  props
+    name: string
+    rating: number
+    specialty: string
+    photoUrl: string
+    isClosed: bool
+    categories: string[]
+    isNew: bool
+  view
+    Card(padded=false, interactive=(not isClosed))
+      if isNew
+        row position="absolute" top="space.xxs" left="space.xxs" z-index=1 padding=8 border-radius="radius.card"
+          background-color="badge.positive-bg" color="badge.positive-text" testId="new-tag"
+          Label(label="new", size=22.4, weight=500)
+      row position="relative"
+        if isClosed
+          row position="absolute" inset=0 z-index=1 align-items="center" justify-content="center"
+            border-radius="8px 8px 0 0" background-color="restaurant-card.closed-scrim" color="text.on-inverse"
+            Label(label="This restaurant is closed.", size=18, weight=400)
+        image photoUrl alt="restaurant" width="100%" height=200 object-fit="cover"
+          filter=(isClosed ? "grayscale(1)" : "none")
+      column padding="space.sm" background-color="surface.card"
+        row margin-bottom=11
+          SizedHeading(label=name, level=2, size=4)
+        Review(rating=rating)
+        Body(label=specialty, size="M", weight="regular")
+        if categories.length > 0
+          row flex-wrap="wrap"
+            for category in categories key=category
+              row margin-top="space.sm" margin-right="space.xxs"
+                Badge(text=category, variant="neutral")
+
+// The card's shape while its restaurant loads.
+component RestaurantCardSkeleton
+  view
+    column width="100%" role="status" aria-label="Loading restaurant" testId="loading"
+      Card(padded=false, interactive=false)
+        Skeleton(width="100%", height="200px")
+        column gap="space.xxs" padding="space.sm" background-color="surface.card"
+          row margin-bottom=3
+            Skeleton(width="50%", height="27px")
+          Skeleton(width="35%", height="")
+          Skeleton(width="", height="")
+          row margin-top="space.sm" width="100%"
+            Skeleton(width="25%", height="23px")

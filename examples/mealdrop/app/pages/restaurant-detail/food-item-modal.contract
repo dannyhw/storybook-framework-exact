@@ -1,0 +1,77 @@
+use Heading, Body, Label from "../../components/typography.contract"
+use Button from "../../components/button.contract"
+use Modal from "../../components/modal.contract"
+use QuantityStepper from "../../components/quantity-stepper.contract"
+use FoodMenuItem, CartItem, money from "../../data/shapes.contract"
+use quantityOf from "./food-section.contract"
+
+// The shared Button sizes to its label and takes no accessible name; this one fills its row and is the
+// modal's "confirm".
+style Confirm
+  display="flex" flex=1 align-items="center" justify-content="center" border="0" cursor="pointer" padding="14px 24px"
+  border-radius="radius.control" background-color="action.primary" color="action.on-primary"
+  transition="background-color 150ms ease-in"
+  :hover
+    background-color = "action.primary-hover"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// A dish opened from the menu: its name and description over a quantity and the button that puts that
+// many in the cart. It starts at the quantity already in the cart, or 1.
+component FoodItemModal
+  props
+    open: bool
+    item: FoodMenuItem
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    // The item's id and the quantity chosen.
+    save: action
+    dismiss: action
+  // 0 until the stepper is used, so each opening starts from the cart.
+  state picked = 0
+  derive inCart = quantityOf(cartItems, item.id)
+  derive quantity = picked > 0 ? picked : inCart > 0 ? inCart : 1
+  action pick(n: number)
+    picked = n
+  action confirm
+    save(item.id, quantity)
+    picked = 0
+    dismiss()
+  action hide
+    picked = 0
+    dismiss()
+  view
+    Modal(open=open, label=item.name, compact=compact, dismiss=hide)
+      column testId="food-item-modal"
+        column padding="40px 24px" background-color="surface.sunken" border-radius="16px 16px 0 0"
+          Heading(label=item.name, level=1)
+          row margin-top="space.xxs"
+            Body(label=item.description, size="M", weight="regular")
+        column padding="space.sm" flex-direction=(compact ? "column" : "row") align-items="stretch"
+          row flex=0.45 align-items="center" justify-content="center" margin-bottom=(compact ? 24 : 0) margin-right=(compact ? 0 : 24)
+            QuantityStepper(value=quantity, min=1, max=10, label="quantity", change=pick)
+          button class=Confirm press=confirm aria-label="confirm" testId="confirm"
+            Label(label=`add for ${money(item.price * quantity, currency)}`, size=16, weight=400)
+
+// Mealdrop's story: the page under the modal, with a button to open it again.
+component FoodItemModalExample
+  props
+    item: FoodMenuItem
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    save: action
+    dismiss: action
+  state open = true
+  action show
+    open = true
+    focus("modal-panel")
+  action hide
+    open = false
+    dismiss()
+  view
+    column position="relative" gap="space.xs" padding="space.xs" min-height="100vh" box-sizing="border-box"
+      Body(label="Press ESC to close modal or click on the close icon!", size="M", weight="regular")
+      Button(label="Open modal", icon="none", clear=false, round=false, large=false, disabled=false, press=show)
+      FoodItemModal(open=open, item=item, cartItems=cartItems, currency=currency, compact=compact, save=save, dismiss=hide)

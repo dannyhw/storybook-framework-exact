@@ -1,0 +1,27 @@
+use Heading, Body from "./typography.contract"
+
+// The centred page column. Droppy changes its side padding at the 640px and 1024px breakpoints; a
+// component cannot read the viewport, so the page passes `compact` for a narrow window.
+component Container
+  props
+    // Below the desktop breakpoint, add nothing: the caller lays the narrow page out itself.
+    desktopOnly: bool
+    compact: bool
+  slot
+  derive bare = desktopOnly and compact
+  view
+    column box-sizing="border-box" width="100%" max-width=(bare ? "none" : "1600px") margin=(bare ? "0" : "0 auto")
+      padding=(bare ? "0" : desktopOnly or compact ? "0 24px" : "0 64px") testId="container"
+      children
+
+// The column made visible: its content on a tinted band.
+component ContainerExample
+  props
+    desktopOnly: bool
+    compact: bool
+  view
+    column background-color="surface.sunken"
+      Container(desktopOnly=desktopOnly, compact=compact)
+        column gap=8 padding="24px 0" background-color="surface.highlight"
+          Heading(label="Page content", level=3)
+          Body(label="Everything on a page sits inside this column.", size="M", weight="regular")

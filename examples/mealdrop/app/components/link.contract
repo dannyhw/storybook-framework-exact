@@ -1,0 +1,33 @@
+use Body from "./typography.contract"
+
+// A link takes the colour of what it sits in (text, or the light text of the footer) and has no underline.
+style Plain
+  color="currentColor" text-decoration="none" cursor="pointer" border-radius="radius.control"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// An inline text link. `href` goes to a page; `press` lets a parent route it instead; `external` opens
+// it in a new tab.
+component Link
+  props
+    href: string
+    external: bool
+    press: action
+  slot
+  view
+    row
+      link class=Plain href=href target=(external ? "_blank" : "_self") press=press testId="link"
+        children
+
+// A link in a sentence, for the story.
+component LinkExample
+  props
+    href: string
+    external: bool
+    press: action
+  view
+    row gap=4 align-items="baseline" flex-wrap="wrap"
+      Body(label="Hungry? Browse", size="M", weight="regular")
+      Link(href=href, external=external, press=press)
+        Body(label="all categories", size="M", weight="bold")
+      Body(label="near you.", size="M", weight="regular")

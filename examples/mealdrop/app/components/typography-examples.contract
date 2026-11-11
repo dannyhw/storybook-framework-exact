@@ -1,0 +1,24 @@
+use Heading from "./typography.contract"
+use Body from "./typography.contract"
+
+// The body sizes stacked, each with its own name unless a label is given, for the Body story.
+component BodyScale
+  props
+    label: string
+  view
+    column
+      Body(label=(label != "" ? label : "Body"), size="M", weight="regular")
+      Body(label=(label != "" ? label : "Body S"), size="S", weight="regular")
+      Body(label=(label != "" ? label : "Body XS"), size="XS", weight="regular")
+      Body(label=(label != "" ? label : "Body XXS"), size="XXS", weight="regular")
+
+// The heading levels stacked, for the Heading story.
+component HeadingScale
+  props
+    label: string
+  view
+    column
+      Heading(label=(label != "" ? label : "Heading 1"), level=1)
+      Heading(label=(label != "" ? label : "Heading 2"), level=2)
+      Heading(label=(label != "" ? label : "Heading 3"), level=3)
+      Heading(label=(label != "" ? label : "Heading 4"), level=4)

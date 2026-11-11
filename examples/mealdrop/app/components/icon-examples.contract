@@ -1,0 +1,29 @@
+use Icon from "./icon.contract"
+use Body from "./typography.contract"
+
+// Every icon of the design system in a tile with its name, for the icon story's overview. Written out:
+// a list of names is a list of strings, which the icon's enum does not take.
+component IconGallery
+  props
+    size: number
+  view
+    view display="grid" gap="space.xs" grid-template-columns="repeat(auto-fill, minmax(120px, 1fr))"
+      IconTile(name="arrow-right", size=size)
+      IconTile(name="arrow-left", size=size)
+      IconTile(name="cross", size=size)
+      IconTile(name="cart", size=size)
+      IconTile(name="minus", size=size)
+      IconTile(name="plus", size=size)
+      IconTile(name="moon", size=size)
+      IconTile(name="sun", size=size)
+      IconTile(name="star", size=size)
+
+component IconTile
+  props
+    name: enum<"none", "arrow-right", "arrow-left", "cross", "cart", "minus", "plus", "moon", "sun", "star">
+    size: number
+  view
+    column align-items="center" justify-content="center" gap="space.xxs" padding="32px 16px" color="icon.default"
+      border-width=1 border-style="solid" border-color="text.primary" border-radius="radius.card" testId=`tile-${name}`
+      Icon(name=name, size=size)
+      Body(label=name, size="XS", weight="regular")

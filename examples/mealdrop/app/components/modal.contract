@@ -1,0 +1,99 @@
+use Button from "./button.contract"
+use Body from "./typography.contract"
+use Icon from "./icon.contract"
+
+style Close
+  display="flex" align-items="center" justify-content="center" border="0" cursor="pointer" padding=16
+  border-radius="50%" background-color="transparent" color="text.primary" transition="background-color 150ms ease-in"
+  :hover
+    background-color = "action.subtle-hover"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+keyframes modalIn
+  from opacity=0 scale=0.9
+keyframes modalOut
+  to opacity=0 scale=0.9
+keyframes sheetIn
+  from translate="0px 100%"
+keyframes sheetOut
+  to translate="0px 100%"
+keyframes fadeIn
+  from opacity=0
+
+// A centred card over the page, or a bottom sheet when `compact`. Exact's `dialog` opens only by
+// command, so a prop cannot hold it open: this is a backdrop and a panel, and the parent owns `open`.
+// Escape (once focus is in the panel: the opener moves it there with `focus("modal-panel")`), the backdrop and the close button all call `dismiss`.
+component Modal
+  props
+    open: bool
+    label: string
+    compact: bool
+    dismiss: action
+  slot
+  action key(k: string)
+    if k == "Escape"
+      dismiss()
+  view
+    column
+      if open
+        box position="absolute" inset=0 z-index=98 background-color="scrim.backdrop" press=dismiss
+          animation="fadeIn 300ms ease both" testId="modal-backdrop"
+        if compact
+          column id="modal-panel" role="dialog" aria-modal=true aria-label=label tabindex=-1 outline="none" key=key testId="modal"
+            position="absolute" left=0 right=0 bottom=0 top="50%" z-index=99 overflow="auto"
+            background-color="surface.overlay" color="text.primary" border-radius="16px 16px 0 0"
+            box-shadow="0 28px 48px rgb(0 0 0 / 40%)"
+            animation="sheetIn 300ms ease both" -exact-exit-animation="sheetOut 300ms ease both"
+            Panel(dismiss=dismiss)
+              children
+        else
+          column id="modal-panel" role="dialog" aria-modal=true aria-label=label tabindex=-1 outline="none" key=key testId="modal"
+            position="absolute" left="calc(50% - 300px)" top="calc(50% - 136px)" width=600 height=272 z-index=99
+            overflow="auto" background-color="surface.overlay" color="text.primary" border-radius="radius.sheet"
+            box-shadow="0 28px 48px rgb(0 0 0 / 40%)"
+            animation="modalIn 120ms ease both" -exact-exit-animation="modalOut 120ms ease both"
+            Panel(dismiss=dismiss)
+              children
+
+// The panel's content, under its close button. Content runs edge to edge, so it pads itself.
+component Panel
+  props
+    dismiss: action
+  slot
+  view
+    column position="relative" flex=1
+      row position="absolute" top=12 right=12 z-index=1
+        CloseButton(label="close modal", dismiss=dismiss)
+      children
+
+// Button's clear, round icon look; drawn here because an icon-only control needs its own name.
+component CloseButton
+  props
+    label: string
+    dismiss: action
+  view
+    row
+      button class=Close press=dismiss aria-label=label testId=`${label.replaceAll(" ", "-")}-btn`
+        Icon(name="cross", size=16)
+
+// Mealdrop's story: the page under the modal, with a button to open it again.
+component ModalExample
+  props
+    compact: bool
+    dismiss: action
+  state open = true
+  // Focus goes into the panel, so Escape reaches it at once.
+  action show
+    open = true
+    focus("modal-panel")
+  action hide
+    open = false
+    dismiss()
+  view
+    column position="relative" gap="space.xs" padding="space.xs" min-height="100vh" box-sizing="border-box"
+      Body(label="Press ESC to close modal or click on the close icon!", size="M", weight="regular")
+      Button(label="Open modal", icon="none", clear=false, round=false, large=false, disabled=false, press=show)
+      Modal(open=open, label="dialog", compact=compact, dismiss=hide)
+        column padding="space.sm"
+          Body(label="Some content here", size="M", weight="regular")

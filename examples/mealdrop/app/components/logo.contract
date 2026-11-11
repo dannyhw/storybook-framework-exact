@@ -1,0 +1,24 @@
+use Heading from "./typography.contract"
+
+keyframes shine
+  to fill="logo.shine"
+
+// Mealdrop's mark: a drop in two shades of the brand colour, with the name beside it. `large` is the
+// footer's size (150px, or 75px when `compact`); `animated` flashes the drop three times, left to right.
+component Logo
+  props
+    large: bool
+    logoOnly: bool
+    animated: bool
+    compact: bool
+  derive size = large ? (compact ? 75 : 150) : 24
+  view
+    row align-items="center" gap=(logoOnly ? 0 : 12) testId="logo"
+      svg width=(size * 0.8) height=size viewBox="0 0 20 25" role="img" aria-label="MealDrop"
+        path d="M10 1 C10 1 1 11.5 1 16.5 A9 8.5 0 0 0 10 25 Z" fill="logo.left"
+          animation=(animated ? "shine 400ms ease-in 50ms 3" : "none")
+        path d="M10 1 C10 1 19 11.5 19 16.5 A9 8.5 0 0 1 10 25 Z" fill="logo.right"
+          animation=(animated ? "shine 400ms ease-in 200ms 3" : "none")
+        path d="M5.2 15.5 C5.4 13 6.8 10.6 8.4 8.6" fill="none" stroke="logo.highlight" stroke-width=1.6 stroke-linecap="round"
+      if not logoOnly
+        Heading(label="MealDrop", level=4)

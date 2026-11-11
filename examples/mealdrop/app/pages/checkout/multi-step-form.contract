@@ -1,0 +1,104 @@
+use Body, Label from "../../components/typography.contract"
+use Button from "../../components/button.contract"
+use Input from "../../components/input.contract"
+use StepIndicator from "./step-indicator.contract"
+
+// Mealdrop's checks, field by field: "" is valid, anything else is the message under the field.
+fn nameError(v: string): string = v == "" ? "Required" : v.length < 2 ? "Must be at least 2 characters" : ""
+
+fn emailDomain(v: string): string = v.slice(v.indexOf("@") + 1)
+
+// `^[^\s@]+@[^\s@]+\.[^\s@]+$` without a regex: one "@" with text before it, and a dot inside what follows.
+fn isEmail(v: string): bool = not v.includes(" ") and v.indexOf("@") > 0 and not emailDomain(v).includes("@") and emailDomain(v).slice(1, emailDomain(v).length - 1).includes(".")
+
+fn emailError(v: string): string = v == "" ? "Required" : isEmail(v) ? "" : "Please enter a valid email address"
+
+fn phoneError(v: string): string = v == "" ? "Required" : v.length < 10 ? "Please enter a valid phone number" : ""
+
+fn addressError(v: string): string = v == "" ? "Required" : v.length < 5 ? "Please enter a valid address" : ""
+
+fn cityError(v: string): string = v == "" ? "Required" : v.length < 2 ? "Please enter a valid city" : ""
+
+fn isDigit(c: string): bool = c != "" and "0123456789".includes(c)
+
+fn isCapital(c: string): bool = c != "" and "ABCDEFGHIJKLMNOPQRSTUVWXYZ".includes(c)
+
+// A Dutch postcode, `^[0-9]{4}[A-Z]{2}$`: four digits and two capitals.
+fn isPostcode(v: string): bool = v.length == 6 and isDigit(v.slice(0, 1)) and isDigit(v.slice(1, 2)) and isDigit(v.slice(2, 3)) and isDigit(v.slice(3, 4)) and isCapital(v.slice(4, 5)) and isCapital(v.slice(5, 6))
+
+fn postcodeError(v: string): string = v == "" ? "Required" : isPostcode(v) ? "" : "Please enter a valid postcode (e.g., 1234AB)"
+
+// The checkout's form: contact details, then delivery details, under a step indicator. A step's fields are
+// checked when it is submitted, and again on each keystroke after that, as Mealdrop's are. Completing the
+// last step gives the details out through `complete`; the page places the order.
+component MultiStepForm
+  props
+    // firstName, lastName, email, phone, address, postcode, city.
+    complete: action
+  state step = 1
+  state firstName = ""
+  state lastName = ""
+  state email = ""
+  state phone = ""
+  state address = ""
+  state postcode = ""
+  state city = ""
+  // Errors show once their step has been submitted.
+  state contactSubmitted = false
+  state deliverySubmitted = false
+  derive contactValid = nameError(firstName) == "" and nameError(lastName) == "" and emailError(email) == "" and phoneError(phone) == ""
+  derive deliveryValid = addressError(address) == "" and cityError(city) == "" and postcodeError(postcode) == ""
+  action setFirstName(v: string)
+    firstName = v
+  action setLastName(v: string)
+    lastName = v
+  action setEmail(v: string)
+    email = v
+  action setPhone(v: string)
+    phone = v
+  action setAddress(v: string)
+    address = v
+  action setPostcode(v: string)
+    postcode = v
+  action setCity(v: string)
+    city = v
+  action next
+    contactSubmitted = true
+    if contactValid
+      step = 2
+  action previous
+    deliverySubmitted = false
+    step = 1
+  action finish
+    deliverySubmitted = true
+    if deliveryValid
+      complete(firstName, lastName, email, phone, address, postcode, city)
+  view
+    column box-sizing="border-box" width="100%" min-height=480 padding="space.sm" border-radius="radius.card"
+      background-color="surface.overlay" testId="multi-step-form"
+      StepIndicator(title=(step == 1 ? "Contact details" : "Delivery details"), currentStep=step, amountOfSteps=2)
+      if step == 1
+        column testId="contact-details"
+          Input(label="First name", name="firstName", value=firstName, placeholder="John",
+            error=(contactSubmitted ? nameError(firstName) : ""), keyboard="text", change=setFirstName)
+          Input(label="Last name", name="lastName", value=lastName, placeholder="Doe",
+            error=(contactSubmitted ? nameError(lastName) : ""), keyboard="text", change=setLastName)
+          Input(label="Email", name="email", value=email, placeholder="email address",
+            error=(contactSubmitted ? emailError(email) : ""), keyboard="email", change=setEmail)
+          Input(label="Phone number", name="phone", value=phone, placeholder="phone number",
+            error=(contactSubmitted ? phoneError(phone) : ""), keyboard="tel", change=setPhone)
+          row margin-bottom=20 color="text.primary"
+            Label(label="We'll only use your phone to call you about your order", size=11.52, weight=400)
+          row justify-content="flex-start"
+            Button(label="Next", icon="none", clear=false, round=false, large=false, disabled=false, press=next)
+      else
+        column testId="delivery-details"
+          Input(label="Streetname and housenumber", name="address", value=address, placeholder="Some street, 13",
+            error=(deliverySubmitted ? addressError(address) : ""), keyboard="text", change=setAddress)
+          Input(label="Postcode", name="postcode", value=postcode, placeholder="AAAAXX",
+            error=(deliverySubmitted ? postcodeError(postcode) : ""), keyboard="text", change=setPostcode)
+          Input(label="City", name="city", value=city, placeholder="Amsterdam",
+            error=(deliverySubmitted ? cityError(city) : ""), keyboard="text", change=setCity)
+          row justify-content="space-between"
+            Button(label="Previous", icon="none", clear=true, round=false, large=false, disabled=false, press=previous)
+            Button(label="Complete order", icon="none", clear=false, round=false, large=false, disabled=false, press=finish)

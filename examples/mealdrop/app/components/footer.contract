@@ -1,0 +1,47 @@
+use Label from "./typography.contract"
+use Container from "./container.contract"
+use Logo from "./logo.contract"
+use FooterCard, FooterLink from "./footer-card.contract"
+
+// The site footer: the logo and three columns of links on a dark band. The columns wrap to fewer per
+// row as the page narrows. Internal links call `navigate` with their path.
+component Footer
+  props
+    compact: bool
+    navigate: action
+  derive pages = [
+    FooterLink(name="Home", href="/", external=false),
+    FooterLink(name="Categories", href="/categories", external=false),
+    FooterLink(name="About", href="/about", external=false),
+    FooterLink(name="Login", href="/login", external=false)
+  ]
+  derive social = [
+    FooterLink(name="Facebook", href="https://facebook.com", external=true),
+    FooterLink(name="Instagram", href="https://instagram.com", external=true),
+    FooterLink(name="Twitter", href="https://twitter.com", external=true)
+  ]
+  view
+    footer box-sizing="border-box" min-height=450 padding="32px 0" background-color="surface.inverse" color="text.on-inverse"
+      testId="footer"
+      Container(desktopOnly=false, compact=compact)
+        column display="grid" grid-template-columns="repeat(auto-fill, minmax(min(100%, 14rem), 1fr))" row-gap=40 column-gap=24
+          Logo(large=true, logoOnly=true, animated=false, compact=compact)
+          FooterCard(title="Discover us", links=pages, navigate=navigate)
+          FooterCard(title="Our social media", links=social, navigate=navigate)
+          FooterCard(title="Check our apps", links=[], navigate=navigate)
+            column gap="space.xxs"
+              StoreBadge(lead="Download on the", store="App Store")
+              StoreBadge(lead="GET IT ON", store="Google Play")
+
+// A plain stand-in for an app store's badge: a dark pill with the store's name.
+component StoreBadge
+  props
+    lead: string
+    store: string
+  view
+    row
+      column role="img" aria-label=`${store} link` box-sizing="border-box" width=120 padding="5px 12px"
+        border-radius=6 border="1px solid" border-color="palette.neutral-400" background-color="palette.neutral-950"
+        color="palette.neutral-0" testId=`badge-${store}`
+        Label(label=lead, size=9, weight=400)
+        Label(label=store, size=16, weight=500)

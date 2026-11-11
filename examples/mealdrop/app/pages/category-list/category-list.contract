@@ -1,0 +1,23 @@
+use Category as CategoryTile from "../../components/category.contract"
+use Category from "../../data/shapes.contract"
+
+// The shared Link sizes to its content; a tile's link fills its grid cell.
+style TileLink
+  display="flex" flex-direction="column" width="100%" color="currentColor" text-decoration="none"
+  border-radius="radius.card"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// Every category as a photo tile, in as many columns as fit: narrower ones on a phone (`compact`). A tile
+// opens its category: `navigate` with its path.
+component CategoryList
+  props
+    categories: Category[]
+    compact: bool
+    navigate: action
+  view
+    column display="grid" gap=(compact ? 12 : 24) padding-bottom=80 testId="category-list"
+      grid-template-columns=(compact ? "repeat(auto-fill, minmax(150px, 1fr))" : "repeat(auto-fill, minmax(280px, 1fr))")
+      for category in categories key=category.id
+        link class=TileLink href=`/categories/${category.id}` press=navigate(`/categories/${category.id}`)
+          CategoryTile(title=category.title, photoUrl=category.photoUrl, round=false, compact=compact)

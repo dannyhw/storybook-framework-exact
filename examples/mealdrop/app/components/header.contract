@@ -1,0 +1,74 @@
+use Button from "./button.contract"
+use Icon from "./icon.contract"
+use Label from "./typography.contract"
+use Logo from "./logo.contract"
+use CartItem, cartTotal, money from "../data/shapes.contract"
+
+// Button's clear, round icon look, with a name of its own.
+style SchemeToggle
+  display="flex" align-items="center" justify-content="center" padding=16 border="0" border-radius=32 cursor="pointer"
+  background-color="transparent" color="text.primary" transition="background-color 150ms ease-in"
+  :hover
+    background-color = "action.subtle-hover"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// Button's filled look with the cart icon, named "food cart" for a screen reader.
+style CartButton
+  display="flex" align-items="center" justify-content="center" gap="space.xs" padding=16 border="0"
+  border-radius="radius.control" cursor="pointer" transition="background-color 150ms ease-in"
+  background-color="action.primary" color="action.on-primary"
+  :hover
+    background-color = "action.primary-hover"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+style HomeLink
+  display="flex" align-items="center" color="currentColor" text-decoration="none" border-radius="radius.control"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// The site's top bar: the logo, the navigation, the scheme toggle and the cart button with the order's
+// total. It is sticky on a phone (`compact`), and on wide pages too when `sticky`; `logoOnly` leaves only
+// the logo. Its intents go out: `navigate` with a path, `toggleScheme`, `openCart`.
+component Header
+  props
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    logoOnly: bool
+    sticky: bool
+    compact: bool
+    navigate: action
+    toggleScheme: action
+    openCart: action
+  derive total = cartTotal(cartItems)
+  view
+    header box-sizing="border-box" display="flex" flex-direction="row" justify-content="space-between" width="100%"
+      flex-shrink=0 height=(compact ? 56 : 72) padding=(compact ? "0 24px" : "0 64px") border-bottom="1px solid"
+      border-color="border.subtle" position=(sticky or compact ? "sticky" : "relative") top=0 left=0 z-index=2
+      background-color="surface.default" color="text.primary" testId="header"
+      row align-items="center"
+        link class=HomeLink href="/" press=navigate("/") aria-label="go to home page" testId="home-link"
+          Logo(large=false, logoOnly=false, animated=false, compact=compact)
+      if not logoOnly
+        row align-items="center" justify-content="flex-end" gap="space.xxs" width=(compact ? "50%" : "80%")
+          if not compact
+            button class=SchemeToggle press=toggleScheme aria-label="toggle dark mode" testId="scheme-toggle"
+              view position="relative" width=24 height=24
+                row position="absolute" inset=0 color="scheme-toggle.sun"
+                  Icon(name="sun", size=24)
+                row position="absolute" inset=0 color="scheme-toggle.moon"
+                  Icon(name="moon", size=24)
+            Button(label="Home", icon="none", clear=true, round=false, large=false, disabled=false, press=navigate("/"))
+            Button(label="All restaurants", icon="none", clear=true, round=false, large=false, disabled=false,
+              press=navigate("/categories"))
+          row
+            button class=CartButton press=openCart padding=(compact ? 11 : 16) aria-label="food cart" testId="cart-button"
+              Icon(name="cart", size=24)
+              if total > 0
+                row align-items="baseline" gap="space.xxxs"
+                  if not compact
+                    row opacity=0.8
+                      Label(label="Order", size=18, weight=400)
+                  row testId="cart-total"
+                    Label(label=money(total, currency), size=18, weight=400)

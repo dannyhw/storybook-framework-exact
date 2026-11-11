@@ -1,0 +1,32 @@
+use Heading from "../../components/typography.contract"
+use FoodMenuItem, CartItem from "../../data/shapes.contract"
+use FoodItem from "./food-item.contract"
+
+fn quantityOf(cartItems: CartItem[], id: number): number = sum(cartItems.filter(c => c.id == id).map(c => c.quantity))
+
+// One part of a menu ("To eat", "Dessert"): a heading over a grid of dishes, each showing how many are in
+// the cart. Mealdrop's grid is one column, then two, then three as the window widens; here the columns
+// follow the space the grid has, and `compact` holds it to one.
+component FoodSection
+  props
+    title: string
+    items: FoodMenuItem[]
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    // The pressed dish's id.
+    itemPress: action
+  view
+    column testId="food-section"
+      row margin-bottom="space.sm"
+        Heading(label=title, level=3)
+      if compact
+        column gap="space.sm" padding-bottom=48
+          for item in items key=item.id
+            FoodItem(name=item.name, description=item.description, price=item.price, quantity=quantityOf(cartItems, item.id),
+              currency=currency, press=itemPress(item.id))
+      else
+        box display="grid" gap="space.sm" padding-bottom=48 grid-template-columns="repeat(auto-fill, minmax(min(100%, 20rem), 1fr))"
+          for item in items key=item.id
+            FoodItem(name=item.name, description=item.description, price=item.price, quantity=quantityOf(cartItems, item.id),
+              currency=currency, press=itemPress(item.id))

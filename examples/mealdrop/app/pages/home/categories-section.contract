@@ -1,0 +1,27 @@
+use Carousel, CarouselItem from "../../components/carousel.contract"
+use Category as CategoryTile from "../../components/category.contract"
+use PageSection from "../../components/page-section.contract"
+use Category from "../../data/shapes.contract"
+
+// The shared Link sizes to its content; a tile's link fills its carousel item.
+style TileLink
+  display="flex" flex-direction="column" width="100%" color="currentColor" text-decoration="none"
+  border-radius="radius.card"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// The home page's carousel of categories, each a round card that opens its category. Six at a time on
+// wide pages, two on a phone.
+component CategoriesSection
+  props
+    categories: Category[]
+    compact: bool
+    navigate: action
+  view
+    PageSection(title="Categories", topButtonLabel="View all categories", compact=compact,
+      topButtonPress=navigate("/categories"))
+      Carousel(name="categories", count=categories.length, perView=(compact ? 2 : 6), compact=compact)
+        for category, i in categories key=category.id
+          CarouselItem(name="categories", index=i, perView=(compact ? 2 : 6))
+            link class=TileLink href=`/categories/${category.id}` press=navigate(`/categories/${category.id}`)
+              CategoryTile(title=category.title, photoUrl=category.photoUrl, round=true, compact=compact)

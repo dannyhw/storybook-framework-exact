@@ -1,0 +1,26 @@
+use Body, SizedHeading from "./typography.contract"
+use ShoppingCartItem from "./shopping-cart-item.contract"
+use CartItem, cartTotal, money from "../data/shapes.contract"
+
+// The order as the checkout page lists it, with its total. A card on `surface.default` rather than the
+// card tone: it sits on sunken or highlighted bands, where the card tone would blend in.
+component OrderSummary
+  props
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+  view
+    column box-sizing="border-box" width="100%" min-height=250 padding="space.sm" border-radius="radius.card"
+      background-color="surface.default" testId="order-summary"
+      column margin-bottom="space.sm"
+        SizedHeading(label="Your order", level=3, size=4)
+      column overflow-y="auto"
+        if cartItems.length > 0
+          for item in cartItems key=item.id
+            ShoppingCartItem(item=item, currency=currency)
+        else
+          Body(label="Your cart is empty.", size="M", weight="regular")
+      row margin-top="auto" padding-top="space.xs" border-top="1px solid" border-color="border.subtle"
+        align-items="center" justify-content="space-between"
+        Body(label="Total", size="M", weight="regular")
+        row testId="order-total"
+          SizedHeading(label=money(cartTotal(cartItems), currency), level=2, size=4)

@@ -1,0 +1,121 @@
+// Mealdrop's design: the tokens of the Droppy design system (@droppy-ui/design-system, MIT), its light
+// theme and its dark one as the two sides of each colour.
+tamber mealdrop
+
+theme
+  AccentColor = light-dark(#202020, #e5f8bc)
+
+  // What a surface, a text or a control is.
+  action.on-primary = light-dark(#ffffff, #2c2c2c)
+  action.primary = light-dark(#202020, #e5f8bc)
+  action.primary-hover = light-dark(#2c2c2c, #cedfa9)
+  action.progress = light-dark(#202020, #e5f8bc)
+  action.subtle-hover = light-dark(#f5f6f7, #363636)
+  badge.bg = light-dark(#e9e9e9, #363636)
+  badge.positive-bg = #e5f8bc  scheme=fixed
+  badge.positive-text = #2c2c2c  scheme=fixed
+  badge.text = light-dark(#636363, #a6a6a6)
+  border.subtle = light-dark(#e9e9e9, #363636)
+  chip.contrast-bg = #202020  scheme=fixed
+  chip.contrast-text = #ffffff  scheme=fixed
+  focus.halo = light-dark(#d8eef2, #b1dde4)
+  focus.ring = light-dark(#8eb1b6, #596f72)
+  icon.default = light-dark(#2c2c2c, #ffffff)
+  progress.fill = light-dark(#202020, #e5f8bc)
+  progress.track = light-dark(#f5f6f7, #363636)
+  skeleton.base = light-dark(#e9e9e9, #4d4d4d)
+  skeleton.highlight = light-dark(#f5f6f7, #636363)
+  surface.card = light-dark(#f9f9f9, #2c2c2c)
+  surface.default = light-dark(#ffffff, #202020)
+  surface.highlight = light-dark(#e5f8bc, #2c2c2c)
+  surface.info = light-dark(#b1dde4, #2c2c2c)
+  surface.inverse = #2c2c2c  scheme=fixed
+  surface.overlay = light-dark(#ffffff, #2c2c2c)
+  surface.page = light-dark(#ffffff, #202020)
+  surface.sunken = light-dark(#f5f6f7, #363636)
+  text.default = light-dark(#2c2c2c, #ffffff)
+  text.error = light-dark(#b71c1c, #e57373)
+  text.hint = light-dark(#797979, #a6a6a6)
+  text.label = light-dark(#363636, #e9e9e9)
+  text.label-active = light-dark(#202020, #ffffff)
+  text.on-inverse = #ffffff  scheme=fixed
+  text.primary = light-dark(#2c2c2c, #ffffff)
+  text.review = light-dark(#596f72, #b1dde4)
+  text.secondary = light-dark(#636363, #a6a6a6)
+
+  // The palette those are drawn from: the same in both schemes.
+  palette.blue-100 = #d8eef2  scheme=fixed
+  palette.blue-200 = #b1dde4  scheme=fixed
+  palette.blue-400 = #8eb1b6  scheme=fixed
+  palette.blue-700 = #596f72  scheme=fixed
+  palette.brand-200 = #61d8de  scheme=fixed
+  palette.brand-300 = #4cc8c0  scheme=fixed
+  palette.brand-400 = #36c1bf  scheme=fixed
+  palette.brand-500 = #22aca7  scheme=fixed
+  palette.brand-dark-100 = #e4f7bb  scheme=fixed
+  palette.brand-dark-200 = #daeaae  scheme=fixed
+  palette.brand-dark-300 = #d2e29a  scheme=fixed
+  palette.brand-dark-400 = #c6d88b  scheme=fixed
+  palette.brand-dark-shine = #efffbb  scheme=fixed
+  palette.brand-nose = #b1dce3  scheme=fixed
+  palette.brand-shine = #9ff4f1  scheme=fixed
+  palette.green-100 = #f2fcde  scheme=fixed
+  palette.green-200 = #e5f8bc  scheme=fixed
+  palette.green-300 = #cedfa9  scheme=fixed
+  palette.neutral-0 = #ffffff  scheme=fixed
+  palette.neutral-50 = #f9f9f9  scheme=fixed
+  palette.neutral-100 = #f5f6f7  scheme=fixed
+  palette.neutral-150 = #e9e9e9  scheme=fixed
+  palette.neutral-200 = #d2d2d2  scheme=fixed
+  palette.neutral-300 = #bcbcbc  scheme=fixed
+  palette.neutral-400 = #a6a6a6  scheme=fixed
+  palette.neutral-500 = #909090  scheme=fixed
+  palette.neutral-600 = #797979  scheme=fixed
+  palette.neutral-700 = #636363  scheme=fixed
+  palette.neutral-750 = #4d4d4d  scheme=fixed
+  palette.neutral-800 = #363636  scheme=fixed
+  palette.neutral-900 = #2c2c2c  scheme=fixed
+  palette.neutral-950 = #202020  scheme=fixed
+  palette.red-300 = #e57373  scheme=fixed
+  palette.red-500 = #d70808  scheme=fixed
+  palette.red-700 = #b71c1c  scheme=fixed
+
+  // Spacing and corners.
+  space.xxs: length = 8px
+  space.xxxs: length = 4px
+  space.lg: length = 52px
+  space.md: length = 32px
+  space.sm: length = 24px
+  space.xl: length = 84px
+  space.xs: length = 16px
+  radius.card: length = 8px
+  radius.control: length = 4px
+  radius.pill: length = 32px
+  radius.sheet: length = 16px
+
+  // Modal and Sidebar: the dimmed page behind an overlay, darker in the dark scheme as Droppy's drawer is.
+  scrim.backdrop = light-dark(#00000033, #00000099)
+
+  // Logo: the drop's two halves, its highlight, and the shine it flashes when animated.
+  logo.left = light-dark(#61d8de, #e4f7bb)
+  logo.right = light-dark(#36c1bf, #d2e29a)
+  logo.highlight = light-dark(#9ff4f1, #ffffff)
+  logo.shine = light-dark(#9ff4f1, #efffbb)
+
+  // Header: the scheme toggle shows a sun in the light scheme and a moon in the dark one. A component
+  // cannot read the scheme, so both are drawn and each is transparent in the other scheme.
+  scheme-toggle.sun = light-dark(#2c2c2c, #ffffff00)
+  scheme-toggle.moon = light-dark(#2c2c2c00, #ffffff)
+
+  // CheckoutPage and SuccessPage: the tinted band their panels sit on. Droppy's neutral-50 in light; in dark
+  // a shade under neutral-950, because the order summary's panel is neutral-950 there and would melt into it.
+  surface.tinted-page = light-dark(#f9f9f9, #171717)
+
+  // RestaurantCard: the shade over a closed restaurant's photo, the same over any photograph.
+  restaurant-card.closed-scrim = #00000066  scheme=fixed
+
+  // Home page Banner: the colours of its table-of-food drawing, fixed like a picture's.
+  illustration.hill = #f8d1df  scheme=fixed
+  illustration.bun = #e8a95b  scheme=fixed
+  illustration.cheese = #f5c84c  scheme=fixed
+  illustration.patty = #6b3e26  scheme=fixed

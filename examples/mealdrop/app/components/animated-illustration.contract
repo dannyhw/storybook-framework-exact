@@ -1,0 +1,55 @@
+// Original line drawings that stand in for Mealdrop's Lottie animations, which are not licensed for
+// reuse: an empty plate with a question bobbing over it, and a plate broken in two.
+keyframes illustrationBob
+  0% translate="0px 0px"
+  50% translate="0px -14px"
+  100% translate="0px 0px"
+
+keyframes illustrationSearch
+  0% rotate="-18deg"
+  50% rotate="18deg"
+  100% rotate="-18deg"
+
+keyframes illustrationTiltLeft
+  0% rotate="0deg"
+  50% rotate="-7deg"
+  100% rotate="0deg"
+
+keyframes illustrationTiltRight
+  0% rotate="0deg"
+  50% rotate="7deg"
+  100% rotate="0deg"
+
+keyframes illustrationPulse
+  0% opacity=1 scale=1
+  50% opacity=0.55 scale=0.9
+  100% opacity=1 scale=1
+
+// A full-page illustration for an empty or failed screen, gently animated.
+component AnimatedIllustration
+  props
+    animation: enum<"NotFound", "Error">
+  view
+    row width="100%" max-width=450 aspect-ratio="1" testId=`illustration-${animation}`
+      svg width="100%" height="100%" viewBox="0 0 400 400" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+        ellipse cx=200 cy=345 rx=130 ry=12 fill="border.subtle"
+        if animation == "NotFound"
+          path d="M48 170v50M38 170v28a10 10 0 0 0 20 0v-28M48 226v104" stroke="text.secondary" stroke-width=6
+          path d="M352 170c-14 10-16 40-12 70h12v90" stroke="text.secondary" stroke-width=6
+          circle cx=200 cy=250 r=105 fill="surface.sunken" stroke="text.secondary" stroke-width=6
+          circle cx=200 cy=250 r=70 stroke="border.subtle" stroke-width=4
+          g animation="illustrationBob 2.4s ease-in-out infinite"
+            path d="M176 52a24 24 0 1 1 34 22c-8 4-10 9-10 18" stroke="palette.brand-500" stroke-width=12
+            circle cx=200 cy=118 r=7 fill="palette.brand-500"
+          g transform-origin="200px 250px" animation="illustrationSearch 3.2s ease-in-out infinite"
+            circle cx=250 cy=270 r=26 fill="surface.default" stroke="text.primary" stroke-width=6
+            path d="M269 289l26 26" stroke="text.primary" stroke-width=10
+        if animation == "Error"
+          g transform-origin="190px 345px" animation="illustrationTiltLeft 2.8s ease-in-out infinite"
+            path d="M192 145a105 105 0 0 0 0 210l14-46-22-34 18-40-18-36z" fill="surface.sunken" stroke="text.secondary" stroke-width=6
+          g transform-origin="214px 345px" animation="illustrationTiltRight 2.8s ease-in-out infinite"
+            path d="M214 145a105 105 0 0 1 0 210l14-46-22-34 18-40-18-36z" fill="surface.sunken" stroke="text.secondary" stroke-width=6
+          g transform-origin="200px 80px" animation="illustrationPulse 1.6s ease-in-out infinite"
+            circle cx=200 cy=80 r=38 fill="text.error"
+            path d="M200 60v26" stroke="surface.default" stroke-width=10
+            circle cx=200 cy=102 r=5 fill="surface.default"

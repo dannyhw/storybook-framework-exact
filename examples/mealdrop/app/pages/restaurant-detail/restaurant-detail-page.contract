@@ -1,0 +1,114 @@
+use Heading, Body from "../../components/typography.contract"
+use Badge from "../../components/badge.contract"
+use Container from "../../components/container.contract"
+use ErrorBlock from "../../components/error-block.contract"
+use AnimatedIllustration from "../../components/animated-illustration.contract"
+use Review from "../../components/review.contract"
+use Spinner from "../../components/spinner.contract"
+use TopBanner from "../../components/top-banner.contract"
+use Icon from "../../components/icon.contract"
+use PageTemplate, PageOverlay from "../../templates/page-template.contract"
+use Restaurant, CartItem, FoodMenuItem from "../../data/shapes.contract"
+use FoodSection from "./food-section.contract"
+use FoodItemModal from "./food-item-modal.contract"
+
+// The back button on the photo: IconButton's light pill, smaller, so it sits in the photo's corner.
+style BackPill
+  display="flex" box-sizing="border-box" align-items="center" justify-content="center" width=44 height=44 padding=0
+  border="0" border-radius="50%" cursor="pointer" color="palette.neutral-800" background-color="palette.neutral-0"
+  box-shadow="0 4px 8px rgb(0 0 0 / 14%)"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// A restaurant's page in the page template, with its header kept in view.
+component RestaurantDetailPage
+  props
+    restaurant: Restaurant
+    status: enum<"loading", "success", "not-found", "error">
+    cartItems: CartItem[]
+    // Mealdrop's `getCurrency`: every price on the page, the header's and the cart's too.
+    currency: enum<"EUR", "USD">
+    compact: bool
+    // A path to go to, or "back" for the page before (the photo's back button).
+    navigate: action
+    // An item's id and quantity.
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+    retry: action
+  // Which dish's modal is open is the page's own.
+  state selectedId = 0
+  state modalOpen = false
+  derive dishes = restaurant.menu.food.concat(restaurant.menu.dessert).concat(restaurant.menu.drinks)
+  // The dish stays while the modal animates out, so its content does not blank.
+  derive selected = match first(dishes.filter(d => d.id == selectedId)) { case some(d) => d, case none => FoodMenuItem(id=0, name="", description="", price=0) }
+  action pick(id: number)
+    selectedId = id
+    modalOpen = true
+    focus("modal-panel")
+  action closeModal
+    modalOpen = false
+  view
+    PageTemplate(type="sticky-header", cartItems=cartItems, currency=currency, compact=compact, navigate=navigate, saveItem=saveItem,
+      removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      PageOverlay(open=modalOpen, compact=compact)
+        FoodItemModal(open=modalOpen, item=selected, cartItems=cartItems, currency=currency, compact=compact, save=saveItem, dismiss=closeModal)
+      RestaurantDetailPageBody(restaurant=restaurant, status=status, cartItems=cartItems, currency=currency, compact=compact,
+        goTo=navigate, itemPress=pick, retry=retry)
+
+// The page itself: the restaurant's photo, name and details over its menu, or the loading, missing or
+// failed state. A pressed dish's id goes out as `itemPress`; the page opens its modal.
+component RestaurantDetailPageBody
+  props
+    restaurant: Restaurant
+    status: enum<"loading", "success", "not-found", "error">
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    // A path to go to, or "back" for the page before (`navigate` names a host command, so a component cannot
+    // call a prop by that name).
+    goTo: action
+    itemPress: action
+    retry: action
+  action goHome
+    goTo("/")
+  // Mealdrop's `navigate(-1)`: the page before this one.
+  action goBack
+    goTo("back")
+  view
+    column flex=1 testId="restaurant-detail-page"
+      if status == "loading"
+        row flex=1 min-height="calc(100vh - 200px)" align-items="center" justify-content="center"
+          Spinner(label="Looking for some food...")
+      else if status == "not-found"
+        ErrorBlock(title="We can't find this page", body="This page doesn’t exist, keep looking.", buttonText="Home", buttonClick=goHome)
+          AnimatedIllustration(animation="Error")
+      else if status == "error"
+        ErrorBlock(title="Something went wrong!", body="Our bad, something went wrong on our side.", buttonText="Try again", buttonClick=retry)
+          AnimatedIllustration(animation="NotFound")
+      else
+        column testId="restaurant-detail"
+          column position="relative"
+            TopBanner(title="", level=1, photoUrl=restaurant.photoUrl)
+            row position="absolute" top=(compact ? 16 : 24) left=(compact ? 16 : 24)
+              button class=BackPill press=goBack aria-label="go back" testId="back-button"
+                Icon(name="arrow-left", size=20)
+          column padding="space.md 0" background-color="surface.overlay"
+            Container(desktopOnly=false, compact=compact)
+              Heading(label=restaurant.name, level=2)
+              row margin-top="space.xxs" margin-bottom="space.xxs"
+                Body(label=`Specialties: ${restaurant.specialty}`, size="M", weight="regular")
+              row margin-bottom="space.xxs"
+                Review(rating=restaurant.rating)
+              row flex-wrap="wrap" gap="space.xs"
+                for category in restaurant.categories key=category
+                  Badge(text=category, variant="neutral")
+          column padding-top=48 padding-bottom=80 background-color="surface.sunken"
+            Container(desktopOnly=false, compact=compact)
+              if restaurant.menu.food.length > 0
+                FoodSection(title="To eat", items=restaurant.menu.food, cartItems=cartItems, currency=currency, compact=compact, itemPress=itemPress)
+              if restaurant.menu.dessert.length > 0
+                FoodSection(title="Dessert", items=restaurant.menu.dessert, cartItems=cartItems, currency=currency, compact=compact, itemPress=itemPress)
+              if restaurant.menu.drinks.length > 0
+                FoodSection(title="To drink", items=restaurant.menu.drinks, cartItems=cartItems, currency=currency, compact=compact, itemPress=itemPress)

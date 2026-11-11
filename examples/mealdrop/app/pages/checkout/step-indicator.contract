@@ -1,0 +1,20 @@
+use Heading from "../../components/typography.contract"
+use Body from "../../components/typography.contract"
+
+// The checkout form's progress: the step's title, "Step 2 of 4" and a bar. The title and the count sit
+// side by side and wrap under each other when the space is narrow.
+component StepIndicator
+  props
+    title: string
+    currentStep: number
+    amountOfSteps: number
+  derive progress = amountOfSteps > 0 ? min(100, currentStep / amountOfSteps * 100) : 0
+  view
+    column margin-bottom="space.md" testId="step-indicator"
+      row flex-wrap="wrap" align-items="center" justify-content="space-between" column-gap="space.xs" row-gap="space.xxs" margin-bottom="space.xxs"
+        Heading(label=title, level=4)
+        Body(label=`Step ${currentStep} of ${amountOfSteps}`, size="XS", weight="regular")
+      row height=4 width="100%" border-radius="radius.control" background-color="progress.track"
+        role="progressbar" aria-valuemin=0 aria-valuemax=amountOfSteps aria-valuenow=currentStep aria-label=title
+        row height=4 width=`${progress}%` border-radius="radius.control" background-color="progress.fill"
+          -exact-layout-transition="500ms ease-in-out" testId="step-progress"

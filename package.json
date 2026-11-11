@@ -63,6 +63,7 @@
     "setup-exact": "node dist/node/cli.js setup",
     "example": "npm run storybook -w examples/basic",
     "example:build": "npm run build-storybook -w examples/basic",
+    "example:mealdrop": "npm run storybook -w examples/mealdrop",
     "e2e": "node scripts/e2e.mjs",
     "sweep": "node scripts/sweep.mjs"
   },

@@ -65,6 +65,12 @@ jobs:
       - run: npm run e2e
       - run: npm run e2e -- --static
 
+      # The larger example, a port of Mealdrop: its stories typed, every one built, shown, and its play
+      # function run.
+      - run: npm run typecheck -w examples/mealdrop
+      - run: npm run build-storybook -w examples/mealdrop
+      - run: npm run sweep -- --dir examples/mealdrop/storybook-static
+
       - name: Upload screenshots of failed checks
         if: failure()
         uses: actions/upload-artifact@v4

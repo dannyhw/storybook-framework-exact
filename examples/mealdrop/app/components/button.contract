@@ -1,0 +1,56 @@
+use Icon from "./icon.contract"
+use Label from "./typography.contract"
+
+// A state's rows are literals and an element takes one class, so each look is a whole class and the view
+// picks the button, not the class.
+style Filled
+  display="flex" align-items="center" justify-content="center" gap="space.xs" border="0" cursor="pointer"
+  transition="background-color 150ms ease-in"
+  background-color = "action.primary"
+  color = "action.on-primary"
+  :hover
+    background-color = "action.primary-hover"
+  :disabled
+    opacity = 0.4
+
+style Clear
+  display="flex" align-items="center" justify-content="center" gap="space.xs" border="0" cursor="pointer"
+  transition="background-color 150ms ease-in"
+  background-color = "transparent"
+  color = "text.primary"
+  :hover
+    background-color = "action.subtle-hover"
+  :disabled
+    opacity = 0.4
+
+// The primary action control.
+component Button
+  props
+    label: string
+    icon: enum<"none", "arrow-right", "arrow-left", "cross", "cart", "minus", "plus", "moon", "sun", "star">
+    clear: bool
+    round: bool
+    large: bool
+    disabled: bool
+    press: action
+  derive padding = icon != "none" ? "16px" : large ? "18px 24px" : "14px 24px"
+  derive corner = round ? 32 : 4
+  view
+    row
+      if clear
+        button class=Clear press=press disabled=disabled padding=padding border-radius=corner
+          Face(label=label, icon=icon)
+      else
+        button class=Filled press=press disabled=disabled padding=padding border-radius=corner
+          Face(label=label, icon=icon)
+
+component Face
+  props
+    label: string
+    icon: enum<"none", "arrow-right", "arrow-left", "cross", "cart", "minus", "plus", "moon", "sun", "star">
+  view
+    row gap="space.xs" align-items="center"
+      if icon != "none"
+        Icon(name=icon, size=24)
+      if label != ""
+        Label(label=label, size=16, weight=400)

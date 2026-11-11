@@ -1,0 +1,62 @@
+use Button from "../../components/button.contract"
+use Container from "../../components/container.contract"
+use BlackHeading, Heading from "../../components/typography.contract"
+
+// The strip of cards behind the section slides down forever: it is two copies of the same column, moved
+// by one copy's height.
+keyframes awardSlide
+  0% translate="0px -1260px"
+  100% translate="0px 0px"
+
+// A band that points to the best restaurants, with a column of restaurant cards drifting beside it on wide
+// pages. `compact` is a phone: the text alone.
+component AwardWinningSection
+  props
+    compact: bool
+    navigate: action
+  view
+    column position="relative" width="100%" height=487 overflow="hidden" background-color="surface.highlight"
+      testId="award-winning-section"
+      Container(desktopOnly=false, compact=compact)
+        row position="relative" width="100%" height=487 overflow="hidden"
+          column flex=(compact ? 1 : 0.5) height=487 align-items="flex-start" justify-content="center"
+            BlackHeading(label="Award winning", level=1)
+            Heading(label="The best restaurants near you!", level=1)
+            row margin-top=40
+              Button(label="Explore best restaurants", icon="none", clear=false, round=false, large=false,
+                disabled=false, press=navigate("/categories"))
+          if not compact
+            column flex=0.5 align-self="flex-start" aria-hidden="true" animation="awardSlide 60s linear infinite"
+              CardStrip()
+              CardStrip()
+
+// Stands in for Mealdrop's picture of restaurant cards (not licensed for reuse): two columns of drawn
+// cards, each a coloured photo with a plate and two lines of text.
+component CardStrip
+  view
+    svg width="100%" height=1260 flex-shrink=0 viewBox="0 0 520 1260" preserveAspectRatio="xMidYMin meet" fill="none"
+      for card in [
+        StripCard(x=20, y=20, tint="palette.brand-200"),
+        StripCard(x=20, y=335, tint="palette.red-300"),
+        StripCard(x=20, y=650, tint="palette.blue-400"),
+        StripCard(x=20, y=965, tint="palette.brand-dark-400"),
+        StripCard(x=270, y=-137, tint="palette.brand-dark-300"),
+        StripCard(x=270, y=178, tint="palette.brand-400"),
+        StripCard(x=270, y=493, tint="palette.blue-200"),
+        StripCard(x=270, y=808, tint="palette.red-300"),
+        StripCard(x=270, y=1123, tint="palette.brand-dark-300")
+      ] key=`${card.x}-${card.y}`
+        g transform=`translate(${card.x} ${card.y})`
+          rect width=230 height=295 rx=12 fill="surface.default"
+          path d="M0 12a12 12 0 0 1 12-12h206a12 12 0 0 1 12 12v148h-230z" fill=card.tint
+          ellipse cx=115 cy=86 rx=58 ry=38 fill="palette.neutral-0"
+          ellipse cx=115 cy=82 rx=36 ry=22 fill="palette.neutral-150"
+          rect x=20 y=184 width=130 height=16 rx=8 fill="text.primary"
+          rect x=20 y=214 width=90 height=10 rx=5 fill="text.review"
+          rect x=20 y=236 width=170 height=10 rx=5 fill="skeleton.base"
+          rect x=20 y=262 width=56 height=18 rx=4 fill="badge.bg"
+
+shape StripCard
+  x: number
+  y: number
+  tint: string

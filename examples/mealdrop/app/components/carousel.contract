@@ -1,0 +1,65 @@
+use IconButton from "./icon-button.contract"
+use Label from "./typography.contract"
+
+// A row of items that scrolls sideways and snaps to each, with arrows on wide pages that step one item
+// at a time. The items are its slot, each in a `CarouselItem` with the same `name`, an index and the
+// carousel's `perView`; `count` is how many there are. An arrow shows only when there is somewhere to go.
+component Carousel
+  props
+    name: string
+    count: number
+    perView: number
+    compact: bool
+  slot
+  state left = 0
+  state width = 0
+  state client = 0
+  derive measured = client > 0
+  derive canPrev = left > 1
+  derive canNext = measured ? left + client < width - 1 : count > perView
+  derive index = measured ? round(left / (client / perView)) : 0
+  action moved(x: number, y: number, e: ScrollEvent)
+    left = x
+    width = e.scrollWidth
+    client = e.clientWidth
+  action prev
+    scrollIntoView(`${name}-item-${max(index - 1, 0)}`, block="nearest", inline="start", behavior="smooth")
+  action next
+    scrollIntoView(`${name}-item-${min(index + 1, count - 1)}`, block="nearest", inline="start", behavior="smooth")
+  view
+    column position="relative" testId="carousel"
+      scroll display="flex" flex-direction="row" overflow-x="auto" overflow-y="hidden" scroll-snap-type="x mandatory"
+        scrollbar-width="none" scroll=moved testId="carousel-viewport"
+        children
+      if canPrev and not compact
+        row position="absolute" left=0 top="50%" translate="0px -50%" z-index=1
+          IconButton(name="arrow-left", small=false, label="Previous", press=prev)
+      if canNext and not compact
+        row position="absolute" right=0 top="50%" translate="0px -50%" z-index=1
+          IconButton(name="arrow-right", small=false, label="Next", press=next)
+
+// One item of a `Carousel`: a share of its width, snapped to on scroll.
+component CarouselItem
+  props
+    name: string
+    index: number
+    perView: number
+  slot
+  view
+    column id=`${name}-item-${index}` box-sizing="border-box" flex-shrink=0 flex-grow=0
+      flex-basis=`calc(100% / ${perView})` min-width=0 padding-right="space.sm" scroll-snap-align="start"
+      children
+
+// Numbered tiles, for the story.
+component CarouselExample
+  props
+    count: number
+    perView: number
+    compact: bool
+  view
+    Carousel(name="demo", count=count, perView=perView, compact=compact)
+      for i in range(count) key=i
+        CarouselItem(name="demo", index=i, perView=perView)
+          row height=120 border-radius="radius.card" align-items="center" justify-content="center"
+            background-color="action.primary" color="action.on-primary"
+            Label(label=`${i + 1}`, size=24, weight=500)

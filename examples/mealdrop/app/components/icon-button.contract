@@ -1,0 +1,18 @@
+use Icon from "./icon.contract"
+
+// A light pill in both schemes: it floats over photographs, so its colours are the palette's, not a role's.
+style Pill
+  display="flex" align-items="center" justify-content="center" border="0" border-radius="50%" cursor="pointer"
+  color="palette.neutral-800" background-color="palette.neutral-0" box-shadow="0 4px 8px rgb(0 0 0 / 14%)"
+
+// A round control that is only an icon: a carousel's arrows, an overlay's close.
+component IconButton
+  props
+    name: enum<"none", "arrow-right", "arrow-left", "cross", "cart", "minus", "plus", "moon", "sun", "star">
+    small: bool
+    label: string
+    press: action
+  view
+    row
+      button class=Pill press=press aria-label=label width=(small ? 48 : 64) height=(small ? 48 : 64) padding=14
+        Icon(name=name, size=(small ? 15 : 24))

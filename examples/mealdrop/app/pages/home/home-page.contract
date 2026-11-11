@@ -1,0 +1,31 @@
+use PageTemplate from "../../templates/page-template.contract"
+use Banner from "./banner.contract"
+use RestaurantsSection from "./restaurants-section.contract"
+use AwardWinningSection from "./award-winning-section.contract"
+use CategoriesSection from "./categories-section.contract"
+use CartItem, Category, Restaurant from "../../data/shapes.contract"
+
+// The home page: the banner, a carousel of favourite restaurants, the award-winning band and the
+// categories. Every link goes out through `navigate` with its path.
+component HomePage
+  props
+    restaurants: Restaurant[]
+    categories: Category[]
+    status: enum<"loading", "success">
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+  view
+    PageTemplate(type="default", cartItems=cartItems, currency=currency, compact=compact, navigate=navigate, saveItem=saveItem,
+      removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      column gap=72 padding-bottom=72 min-width=0 testId="home-page"
+        Banner(compact=compact, navigate=navigate)
+        RestaurantsSection(title="Our favorite picks", restaurants=restaurants, isLoading=(status == "loading"),
+          compact=compact, navigate=navigate)
+        AwardWinningSection(compact=compact, navigate=navigate)
+        CategoriesSection(categories=categories, compact=compact, navigate=navigate)

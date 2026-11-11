@@ -1,0 +1,19 @@
+use Heading, InverseHeading from "./typography.contract"
+
+// The band at the top of a page with its title: a tint, or a photograph under a light title.
+component TopBanner
+  props
+    title: string
+    level: number
+    photoUrl: string
+  view
+    column position="relative" box-sizing="border-box" width="100%" height=240 align-items="center" justify-content="center"
+      overflow="hidden" background-color="surface.highlight" testId="top-banner"
+      if photoUrl != ""
+        image photoUrl alt="" position="absolute" inset=0 width="100%" height="100%" object-fit="cover"
+      if title != ""
+        row position="relative"
+          if photoUrl != ""
+            InverseHeading(label=title, level=level, size=level)
+          else
+            Heading(label=title, level=level)

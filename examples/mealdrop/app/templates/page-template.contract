@@ -1,0 +1,85 @@
+use Body from "../components/typography.contract"
+use Header from "../components/header.contract"
+use Footer from "../components/footer.contract"
+use ShoppingCartMenu from "../components/shopping-cart-menu.contract"
+use CartItem from "../data/shapes.contract"
+
+// The shell every page sits in: the header, the page (its slot) in a `main`, the footer, and the cart's
+// sidebar. It fills the window and scrolls inside, so the cart (and a page's own modal, placed in the
+// slot) covers the window wherever the page is scrolled to. `sticky-header` keeps the header in view on
+// wide pages too; `basic` shows only the logo and no footer. Whether the cart is open is the template's
+// own; what changes the cart goes out: `saveItem` with an item's id and quantity, `removeItem` with its id.
+component PageTemplate
+  props
+    type: enum<"default", "sticky-header", "basic">
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+  slot
+  state cartOpen = false
+  action openCart
+    cartOpen = true
+    focus("sidebar-panel")
+  action closeCart
+    cartOpen = false
+  action goToCheckout
+    cartOpen = false
+    checkout()
+  view
+    column position="relative" box-sizing="border-box" width="100%" max-width="100vw" height="100vh" overflow="hidden"
+      background-color="surface.page" color="text.primary" testId="page-template"
+      scroll id="page-scroll" flex=1 min-height=0
+        column width="100%" min-width=0 min-height="100%"
+          Header(cartItems=cartItems, currency=currency, logoOnly=(type == "basic"), sticky=(type == "sticky-header"), compact=compact,
+            navigate=navigate, toggleScheme=toggleScheme, openCart=openCart)
+          // The footer is in `main` so that the page's `PageOverlay` (whose bounds are its parent's) reaches the
+          // bottom of the page.
+          main display="flex" flex-direction="column" flex=1 min-width=0 testId="page-content"
+            children
+            if type != "basic"
+              column margin-top="auto"
+                Footer(compact=compact, navigate=navigate)
+      ShoppingCartMenu(open=cartOpen, cartItems=cartItems, currency=currency, compact=compact, dismiss=closeCart, saveItem=saveItem,
+        removeItem=removeItem, checkout=goToCheckout)
+
+// Where a page puts its own `Modal`: a layer over the visible window, however far the page is scrolled.
+// The page scrolls inside the template, and a scroller is the containing block of what is absolutely
+// positioned in it, so a modal placed straight in the page would cover the top of the page, not the
+// window. Put it in the template's slot beside the page's content, not inside it (its parent must be the
+// template's `main`): it takes no room, sticks to the window's top, and lets clicks through while `open`
+// is false. `compact` is the template's, for the header's height.
+component PageOverlay
+  props
+    open: bool
+    compact: bool
+  slot
+  view
+    column position="sticky" top=0 z-index=3 flex-shrink=0 height="100vh" margin-top=(compact ? -56 : -72)
+      margin-bottom=(compact ? "calc(56px - 100vh)" : "calc(72px - 100vh)")
+      pointer-events=(open ? "auto" : "none") testId="page-overlay"
+      children
+
+// Mealdrop's stories: the template around a line of text.
+component PageTemplateExample
+  props
+    type: enum<"default", "sticky-header", "basic">
+    text: string
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+  view
+    PageTemplate(type=type, cartItems=cartItems, currency=currency, compact=compact, navigate=navigate, saveItem=saveItem,
+      removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      column padding=60
+        Body(label=text, size="M", weight="regular")
+

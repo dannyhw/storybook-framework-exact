@@ -1,0 +1,46 @@
+// The records the app's data comes in, shared by every component that shows them. Contract has no optional
+// fields: a restaurant without a rating has 0, an item without a description has "".
+
+shape FoodMenuItem
+  id: number
+  name: string
+  description: string
+  price: number
+
+shape Menu
+  food: FoodMenuItem[]
+  dessert: FoodMenuItem[]
+  drinks: FoodMenuItem[]
+
+shape Restaurant
+  id: string
+  name: string
+  specialty: string
+  photoUrl: string
+  rating: number
+  categories: string[]
+  isNew: bool
+  isClosed: bool
+  menu: Menu
+
+shape CartItem
+  id: number
+  name: string
+  description: string
+  price: number
+  quantity: number
+
+shape Category
+  id: string
+  title: string
+  photoUrl: string
+
+// A price as the shop shows it: euros, two decimals.
+fn toCurrency(amount: number): string = `€${amount.toFixed(2)}`
+
+// A price in the shop's currency: euros, or dollars where the app says so (Mealdrop's `getCurrency`).
+fn money(amount: number, currency: string): string = currency == "USD" ? formatNumber(amount, "currency", "USD") : toCurrency(amount)
+
+fn cartTotal(items: CartItem[]): number = sum(items.map(i => i.price * i.quantity))
+
+fn cartCount(items: CartItem[]): number = sum(items.map(i => i.quantity))

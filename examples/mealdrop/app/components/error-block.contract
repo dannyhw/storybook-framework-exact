@@ -1,0 +1,56 @@
+use Button from "./button.contract"
+use Heading from "./typography.contract"
+use Body from "./typography.contract"
+use AnimatedIllustration from "./animated-illustration.contract"
+
+// A titled message with an illustration and one way out: an empty category, a missing page, a failed
+// request. The illustration is the block's children.
+component ErrorBlock
+  props
+    title: string
+    body: string
+    buttonText: string
+    buttonClick: action
+  slot
+  view
+    column align-items="center" padding="32px 0px" margin="0px auto" testId="error-block"
+      Heading(label=title, level=2)
+      row justify-content="center" width="100%" margin-top="space.sm"
+        children
+      row margin-top=18 margin-bottom=18
+        Body(label=body, size="M", weight="regular")
+      Button(label=buttonText, icon="none", clear=false, round=false, large=false, disabled=false, press=buttonClick)
+
+// Stands in for Mealdrop's sushi drawing (not licensed for reuse): two maki on a board, with chopsticks.
+component SushiIllustration
+  view
+    row
+      svg width=280 height=200 viewBox="0 0 280 200" fill="none" stroke-linecap="round" aria-hidden="true"
+        rect x=20 y=110 width=240 height=56 rx=12 fill="palette.brand-dark-400"
+        rect x=20 y=160 width=240 height=10 rx=5 fill="palette.brand-dark-300"
+        circle cx=95 cy=110 r=46 fill="palette.neutral-900"
+        circle cx=95 cy=110 r=38 fill="palette.neutral-0"
+        circle cx=95 cy=110 r=17 fill="palette.red-300"
+        circle cx=88 cy=104 r=6 fill="palette.green-300"
+        circle cx=185 cy=110 r=46 fill="palette.neutral-900"
+        circle cx=185 cy=110 r=38 fill="palette.neutral-0"
+        circle cx=185 cy=110 r=17 fill="palette.brand-300"
+        circle cx=192 cy=116 r=6 fill="palette.red-300"
+        path d="M150 30l110 52M140 44l118 46" stroke="palette.neutral-700" stroke-width=6
+
+// The block as Mealdrop's stories show it, with the illustration picked by name.
+component ErrorBlockExample
+  props
+    title: string
+    body: string
+    buttonText: string
+    illustration: enum<"sushi", "not-found", "error">
+    buttonClick: action
+  view
+    ErrorBlock(title=title, body=body, buttonText=buttonText, buttonClick=buttonClick)
+      if illustration == "sushi"
+        SushiIllustration()
+      if illustration == "not-found"
+        AnimatedIllustration(animation="NotFound")
+      if illustration == "error"
+        AnimatedIllustration(animation="Error")

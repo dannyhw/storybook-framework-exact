@@ -1,0 +1,34 @@
+use Icon from "./icon.contract"
+use Body from "./typography.contract"
+
+// The design's clear, round icon button, with a name of its own (the shared Button takes none).
+style StepButton
+  display="flex" align-items="center" justify-content="center" border="0" border-radius=32 padding=16 cursor="pointer"
+  transition="background-color 150ms ease-in" background-color="transparent" color="text.primary"
+  :hover
+    background-color="action.subtle-hover"
+  :disabled
+    opacity=0.4
+
+// A minus and a plus around a quantity, for one line of an order. Controlled: it shows `value` and calls
+// `change` with the next one; the buttons stop at `min` and `max` rather than wrap.
+component QuantityStepper
+  props
+    value: number
+    min: number
+    max: number
+    label: string
+    change: action
+  action decrease
+    change(value - 1)
+  action increase
+    change(value + 1)
+  view
+    row
+      row role="group" aria-label=label align-items="center" justify-content="space-between" gap="space.xs"
+        button class=StepButton press=decrease disabled=(value <= min) aria-label="decrease quantity by one" testId="decrease"
+          Icon(name="minus", size=24)
+        row min-width=24 justify-content="center" aria-live="polite" testId="quantity"
+          Body(label=value.toString(), size="M", weight="regular")
+        button class=StepButton press=increase disabled=(value >= max) aria-label="increase quantity by one" testId="increase"
+          Icon(name="plus", size=24)

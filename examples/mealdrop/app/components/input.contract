@@ -1,0 +1,38 @@
+use Label from "./typography.contract"
+
+// The field's look. Its border turns red while the field has an error; the element is the same either way,
+// so it keeps its focus (and what is being typed) when the error comes or goes.
+style Field
+  border-width=1 border-style="solid" border-color="transparent" border-radius="radius.control" padding="13px 16px"
+  background-color="surface.sunken" color="text.primary" font-family="Montserrat, sans-serif" font-size=16 line-height=1.2
+  transition="box-shadow 150ms ease-in"
+  ::placeholder
+    color="text.hint"
+  :hover
+    box-shadow="0px 0px 0px 1px #8eb1b6, 0px 0px 0px 4px #d8eef2"
+  :focus-visible
+    box-shadow="0px 0px 0px 1px #8eb1b6, 0px 0px 0px 4px #d8eef2"
+
+// A labelled text field, controlled: it shows `value` and calls `change` with the text on each keystroke.
+// The error line is always there, so a message appearing does not move the fields below. Without a
+// label, `name` is the field's accessible name (and names its testIds). `keyboard` picks the on-screen keyboard (an input's
+// `type` must be a literal in Contract).
+component Input
+  props
+    label: string
+    name: string
+    value: string
+    placeholder: string
+    error: string
+    keyboard: enum<"text", "email", "tel", "numeric">
+    change: action
+  view
+    column
+      if label != ""
+        row color="text.label" padding-bottom=4
+          Label(label=`${label.slice(0, 1).toUpperCase()}${label.slice(1)}`, size=18, weight=400)
+      input class=Field type="text" inputmode=keyboard value=value placeholder=placeholder input=change autocomplete="off"
+        border-color=(error != "" ? "text.error" : "transparent") aria-invalid=(error != "") aria-label=(label != "" ? label : name)
+        testId=`input-${name}`
+      row min-height=16 margin-top=4 margin-bottom=12 color="text.error" testId=`input-${name}-error`
+        Label(label=error, size=11.52, weight=400)

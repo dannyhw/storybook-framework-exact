@@ -1,0 +1,6 @@
+{
+  "name": "Mealdrop",
+  "id": "dev.storybook.exact.mealdrop",
+  "start_url": "/",
+  "app": { "id": "dev.storybook.exact.mealdrop", "name": "Mealdrop" }
+}

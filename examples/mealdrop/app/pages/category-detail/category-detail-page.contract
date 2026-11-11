@@ -1,0 +1,54 @@
+use PageTemplate from "../../templates/page-template.contract"
+use Breadcrumb, BreadcrumbItem from "../../components/breadcrumb.contract"
+use Container from "../../components/container.contract"
+use ErrorBlock, SushiIllustration from "../../components/error-block.contract"
+use RestaurantCard from "../../components/restaurant-card.contract"
+use TopBanner from "../../components/top-banner.contract"
+use CartItem, Category, Restaurant from "../../data/shapes.contract"
+
+// One category's restaurants, under its photo: three skeleton cards while `loading`, and a way back to every
+// restaurant when it has none. A category id that is not among `categories` is titled "Oops!".
+component CategoryDetailPage
+  props
+    categoryId: string
+    categories: Category[]
+    restaurants: Restaurant[]
+    status: enum<"loading", "success">
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+  derive category = first(categories.filter(c => c.id == categoryId))
+  derive title = match category { case some(c) => c.title, case none => "Oops!" }
+  derive photoUrl = match category { case some(c) => c.photoUrl, case none => "" }
+  derive crumbs = [
+    BreadcrumbItem(label="categories", href="/categories"),
+    BreadcrumbItem(label=(match category { case some(c) => c.title, case none => "" }), href="")
+  ]
+  view
+    PageTemplate(type="default", cartItems=cartItems, currency=currency, compact=compact, navigate=navigate, saveItem=saveItem,
+      removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      column min-width=0 testId="category-detail-page"
+        TopBanner(title=title, level=1, photoUrl=photoUrl)
+        Container(desktopOnly=false, compact=compact)
+          Breadcrumb(items=crumbs, navigate=navigate)
+          if status == "success" and restaurants.length == 0
+            ErrorBlock(title="This is not the food you're looking for.",
+              body="It seems that there are no restaurants in this category yet. Try to come back later?",
+              buttonText="See all restaurants", buttonClick=navigate("/categories"))
+              SushiIllustration()
+          column display="grid" gap="space.sm" padding-bottom=80
+            grid-template-columns="repeat(auto-fill, minmax(min(100%, 356px), 1fr))"
+            if status == "loading"
+              for i in range(3) key=i
+                RestaurantCard(name="", rating=0, specialty="", photoUrl="", isClosed=false, categories=[],
+                  isLoading=true, isNew=false, press=navigate(""))
+            else
+              for restaurant in restaurants key=restaurant.id
+                RestaurantCard(name=restaurant.name, rating=restaurant.rating, specialty=restaurant.specialty,
+                  photoUrl=restaurant.photoUrl, isClosed=restaurant.isClosed, categories=restaurant.categories,
+                  isLoading=false, isNew=restaurant.isNew, press=navigate(`/restaurants/${restaurant.id}`))

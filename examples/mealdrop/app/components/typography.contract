@@ -1,0 +1,88 @@
+// The two families of the design: Montserrat for headings, Hind for everything else. Declared once, here;
+// a component is given them only when this file is among the files it uses, so text is always set with
+// `Heading`, `Body` or `Label`, never with a `font-family` of its own.
+font "Montserrat"
+  400 = "assets/fonts/Montserrat-Regular.ttf"
+  500 = "assets/fonts/Montserrat-Medium.ttf"
+  700 = "assets/fonts/Montserrat-Bold.ttf"
+  900 = "assets/fonts/Montserrat-Black.ttf"
+
+font "Hind"
+  400 = "assets/fonts/Hind-Regular.ttf"
+  500 = "assets/fonts/Hind-Medium.ttf"
+
+fn headingSize(level: number): number = level == 1 ? 43.84 : level == 2 ? 35.04 : level == 3 ? 28 : level == 4 ? 22.4 : 18
+
+fn bodySize(size: string): number = size == "S" ? 16 : size == "XS" ? 14.4 : size == "XXS" ? 11.52 : 18
+
+fn weightOf(weight: string): number = weight == "medium" ? 500 : weight == "bold" ? 700 : weight == "black" ? 900 : 400
+
+// A heading: levels 1 and 2 are display sizes, with tight tracking.
+component Heading
+  props
+    label: string
+    level: number
+  view
+    text label role="heading" aria-level=level color="text.primary" font-family="Montserrat, sans-serif" font-weight=700 line-height=1.2
+      font-size=headingSize(level) letter-spacing=(level <= 2 ? -2 : 0)
+
+// A heading whose size is given apart from its level: a third-level heading set at the fourth's size.
+component SizedHeading
+  props
+    label: string
+    level: number
+    size: number
+  view
+    text label role="heading" aria-level=level color="text.primary" font-family="Montserrat, sans-serif" font-weight=700 line-height=1.2
+      font-size=headingSize(size) letter-spacing=(size <= 2 ? -2 : 0)
+
+// A heading in Montserrat's black face (900): Mealdrop's bolder display lines, such as "Award winning".
+component BlackHeading
+  props
+    label: string
+    level: number
+  view
+    text label role="heading" aria-level=level color="text.primary" font-family="Montserrat, sans-serif" font-weight=900 line-height=1.2
+      font-size=headingSize(level) letter-spacing=(level <= 2 ? -2 : 0)
+
+// A heading that opens with a word or two in the black face (900), the rest in the heading's own (700):
+// Mealdrop's "**Hungry?** find your next meal".
+component LeadHeading
+  props
+    lead: string
+    label: string
+    level: number
+  view
+    text role="heading" aria-level=level color="text.primary" font-family="Montserrat, sans-serif" font-weight=700 line-height=1.2
+      font-size=headingSize(level) letter-spacing=(level <= 2 ? -2 : 0)
+      text lead font-weight=900
+      text ` ${label}`
+
+// A heading in light text, for a photograph or the dark footer. Its size is given apart from its level: a
+// footer's column titles are second-level headings set small.
+component InverseHeading
+  props
+    label: string
+    level: number
+    size: number
+  view
+    text label role="heading" aria-level=level color="text.on-inverse" font-family="Montserrat, sans-serif" font-weight=700
+      line-height=1.2 font-size=headingSize(size) letter-spacing=(size <= 2 ? -2 : 0)
+
+// Running text.
+component Body
+  props
+    label: string
+    size: enum<"M", "S", "XS", "XXS">
+    weight: enum<"regular", "medium", "bold", "black">
+  view
+    text label color="text.primary" font-family="Hind, sans-serif" font-size=bodySize(size) font-weight=weightOf(weight) line-height=1.2
+
+// Text in Hind that takes its colour from where it is placed: a button's label, a badge's.
+component Label
+  props
+    label: string
+    size: number
+    weight: number
+  view
+    text label font-family="Hind, sans-serif" font-size=size font-weight=weight line-height=1.2

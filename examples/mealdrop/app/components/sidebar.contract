@@ -1,0 +1,78 @@
+use Button from "./button.contract"
+use Heading, Body from "./typography.contract"
+use CloseButton from "./modal.contract"
+
+keyframes slideIn
+  from translate="100% 0px"
+keyframes slideOut
+  to translate="100% 0px"
+keyframes scrimIn
+  from opacity=0
+
+// A panel that slides in from the trailing edge, for what is reviewed beside the page: the cart, filters.
+// It is 420px wide, or the whole width when `compact`. Like `Modal`, it is a backdrop and a panel that the
+// parent holds open, and it covers its nearest positioned ancestor, so place it at the page's root.
+// Its content is the slot: a `SidebarBody`, and a `SidebarFooter` for totals and the main action.
+component Sidebar
+  props
+    open: bool
+    title: string
+    compact: bool
+    dismiss: action
+  slot
+  action key(k: string)
+    if k == "Escape"
+      dismiss()
+  view
+    column
+      if open
+        box position="absolute" inset=0 z-index=98 background-color="scrim.backdrop" press=dismiss
+          animation="scrimIn 300ms ease both" testId="sidebar-backdrop"
+        column id="sidebar-panel" role="dialog" aria-modal=true aria-label=title tabindex=-1 outline="none" key=key
+          position="absolute" top=0 right=0 bottom=0 width=(compact ? "100%" : "420px") z-index=99
+          background-color="surface.overlay" color="text.primary" box-shadow="0 28px 48px rgb(0 0 0 / 40%)"
+          animation="slideIn 300ms ease both" -exact-exit-animation="slideOut 300ms ease both" testId="sidebar"
+          row box-sizing="border-box" height=72 min-height=72 align-items="center" justify-content="space-between"
+            padding="24px 16px 24px 24px" background-color="surface.sunken"
+            Heading(label=title, level=4)
+            CloseButton(label="close sidebar", dismiss=dismiss)
+          column flex=1 min-height=0 testId="sidebar-content"
+            children
+
+// The sidebar's scrolling content.
+component SidebarBody
+  slot
+  view
+    scroll flex=1 min-height=0
+      column box-sizing="border-box" padding="space.sm"
+        children
+
+// Pinned to the bottom of the sidebar.
+component SidebarFooter
+  slot
+  view
+    row box-sizing="border-box" min-height=165 padding="space.sm" border-top="1px solid" border-color="border.subtle"
+      background-color="surface.overlay" testId="sidebar-footer"
+      children
+
+// Mealdrop's story: the page under the sidebar, with a button to open it again.
+component SidebarExample
+  props
+    compact: bool
+    dismiss: action
+  state open = true
+  action show
+    open = true
+    focus("sidebar-panel")
+  action hide
+    open = false
+    dismiss()
+  view
+    column position="relative" gap="space.xs" padding="space.xs" min-height="100vh" box-sizing="border-box" overflow="hidden"
+      Body(label="Press ESC to close the sidebar or click on the close icon!", size="M", weight="regular")
+      Button(label="Open sidebar", icon="none", clear=false, round=false, large=false, disabled=false, press=show)
+      Sidebar(open=open, title="Your order", compact=compact, dismiss=hide)
+        SidebarBody()
+          Body(label="Some content here", size="M", weight="regular")
+        SidebarFooter()
+          Body(label="Some footer here", size="M", weight="regular")

@@ -1,0 +1,50 @@
+use Heading, Body, Label from "../../components/typography.contract"
+use Link from "../../components/link.contract"
+use OrderSummary from "../../components/order-summary.contract"
+use TopBanner from "../../components/top-banner.contract"
+use SushiIllustration from "../../components/error-block.contract"
+use PageTemplate from "../../templates/page-template.contract"
+use CartItem from "../../data/shapes.contract"
+
+// The order placed, in the basic page template.
+component SuccessPage
+  props
+    // The order just placed.
+    orderItems: CartItem[]
+    cartItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+  view
+    PageTemplate(type="basic", cartItems=cartItems, currency=currency, compact=compact, navigate=navigate, saveItem=saveItem,
+      removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      SuccessPageBody(orderItems=orderItems, currency=currency, goTo=navigate)
+
+// The page itself: the confirmation, when the order arrives, what was ordered and a way back to the shop,
+// over a drawing. The drawing is an original stand-in for Mealdrop's, which is not licensed for reuse.
+component SuccessPageBody
+  props
+    orderItems: CartItem[]
+    currency: enum<"EUR", "USD">
+    // A path to go to (`navigate` names a host command).
+    goTo: action
+  action home
+    goTo("/")
+  view
+    column flex=1 background-color="surface.tinted-page" testId="success-page"
+      TopBanner(title="Order confirmed!", level=1, photoUrl="")
+      column box-sizing="border-box" width="100%" max-width=400 margin="40px auto 24px" padding="0 16px"
+        Body(label="Estimated delivery", size="M", weight="regular")
+        row margin-bottom="space.sm"
+          Heading(label="13:23 today", level=2)
+        OrderSummary(cartItems=orderItems, currency=currency)
+        row justify-content="center" margin-top="space.xs"
+          row padding="12px 20px" color="text.primary" text-decoration="underline"
+            Link(href="/", external=false, press=home)
+              Label(label="Continue browsing", size=18, weight=400)
+      row justify-content="center" margin-top="auto" overflow="hidden"
+        SushiIllustration()

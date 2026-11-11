@@ -20,6 +20,10 @@ export const Primary: StoryObj<typeof Button> = {};
 export const Secondary: StoryObj<typeof Button> = { args: { tone: 'secondary' } };
 ```
 
+For something larger, [`examples/mealdrop`](examples/mealdrop) is Storybook's Mealdrop demo ported to Contract: a design system, pages, and the whole app with its routes.
+
+[![The Mealdrop example: the app's checkout flow as a story](docs/mealdrop.png)](examples/mealdrop)
+
 > [!WARNING]
 > Experimental. Exact is pre-1.0, changes daily and has no published package, so this framework builds one pinned commit of it from source and relies on some of its internals. It is not affiliated with Expo.
 
@@ -149,7 +153,7 @@ export const Checkout = { parameters: { exact: { location: '/checkout' } } };
 
 The app navigates as it does on a page of its own, and the browser's Back and Forward step through its visits. The canvas keeps Storybook's address throughout, so a reload shows the story again, from its start.
 
-Exact's navigation stack keeps every visit of the stack in the document, the ones beneath hidden and inert. A play function's `getByText` finds those too, so for an app that shows one page at a time, draw only the top visit (`for e in [top(nav)] key=e.id`).
+Exact's navigation stack keeps every visit of the stack in the document, the ones beneath hidden and inert. A play function's `getByText` finds those too, so for an app that shows one page at a time, draw only the top visit (`for e in [top(nav)] key=e.id`), as [`examples/mealdrop`](examples/mealdrop/app/app.contract) does.
 
 A root that fills its window (`height="100%"`) fills the canvas.
 
@@ -263,9 +267,12 @@ npm run example          # the example Storybook, on port 6116
 npm run e2e              # browser tests against the example
 ```
 
-`examples/basic` is an npm workspace that uses the framework from the repository root: an app (`app/`) and a small library (`lib/chips`).
+There are two examples, each an npm workspace that uses the framework from the repository root:
 
-`npm run sweep -- --url <a running Storybook>` (or `--dir <a static build>`) opens every story on its own and says whether it rendered and its play function passed.
+- `examples/basic`: an app (`app/`) and a small library (`lib/chips`), small enough to read in a sitting. The browser tests run against it.
+- [`examples/mealdrop`](examples/mealdrop): a port of Storybook's Mealdrop to Contract: a design system with tokens, pages, and a whole app with routes and a cart (`npm run example:mealdrop`, port 6117).
+
+`npm run sweep -- --url <a running Storybook>` (or `--dir <a static build>`) opens every story on its own and says whether it rendered and its play function passed; CI runs it over the Mealdrop example's static build.
 
 The walkthrough at the top of this page is recorded from the running example, so it shows what the code does today. To record it again, with `npm run example` running:
 

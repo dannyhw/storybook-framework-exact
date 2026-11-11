@@ -1,0 +1,16 @@
+use Body from "./typography.contract"
+use CartItem, money from "../data/shapes.contract"
+
+// One line of an order: how many, what, and what they cost together.
+component ShoppingCartItem
+  props
+    item: CartItem
+    currency: enum<"EUR", "USD">
+  view
+    row width="100%" margin-bottom="space.xs" testId="shopping-cart-item"
+      row flex=0.1
+        Body(label=item.quantity.toString(), size="M", weight="regular")
+      row flex=0.6
+        Body(label=item.name, size="M", weight="regular")
+      row flex=0.3 justify-content="flex-end"
+        Body(label=money(item.quantity * item.price, currency), size="M", weight="regular")

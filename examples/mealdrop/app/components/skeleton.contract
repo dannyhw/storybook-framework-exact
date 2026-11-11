@@ -1,0 +1,17 @@
+// A highlight band crossing the block once per cycle.
+keyframes skeletonShimmer
+  0% translate="-100% 0px"
+  100% translate="100% 0px"
+
+// A loading placeholder for content whose text or size is not known yet: a block that shimmers. Sizes are
+// CSS lengths; empty is the full width and one line of text.
+component Skeleton
+  props
+    width: string
+    height: string
+  view
+    view position="relative" overflow="hidden" border-radius="radius.control" background-color="skeleton.base"
+      width=(width != "" ? width : "100%") height=(height != "" ? height : "1em") aria-hidden="true" testId="skeleton"
+      view position="absolute" top=0 bottom=0 left=0 right=0 background-color="skeleton.highlight"
+        mask-image="linear-gradient(90deg, transparent 0%, black 50%, transparent 100%)"
+        animation="skeletonShimmer 1.6s ease-in-out infinite"

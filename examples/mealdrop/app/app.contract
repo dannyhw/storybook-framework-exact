@@ -1,0 +1,158 @@
+// Mealdrop, the whole app: its routes, as Mealdrop's Routes.tsx has them, and what the pages share. The
+// restaurants, the categories, the cart and the last order are the app's sources (app.ts answers them, or a
+// story's `parameters.exact.sources`); the cart changes through mutations that refresh it. The pages take
+// everything as props and send their intents back here: `navigate` with a path, the cart's changes, the order.
+//
+// This is a website: only the page of the current visit is in the document, so a page's header, cart and
+// fields are the only ones there (a stack of pages kept mounted would hold every page's). The browser's Back
+// still steps back a page: the router keeps the visits. Each visit mounts its page afresh, so it starts at
+// its top, as Mealdrop's `window.scrollTo(0, 0)` on a new path does.
+use PageTemplate from "./templates/page-template.contract"
+use ErrorBlock from "./components/error-block.contract"
+use AnimatedIllustration from "./components/animated-illustration.contract"
+use HomePage from "./pages/home/home-page.contract"
+use CategoryListPage from "./pages/category-list/category-list-page.contract"
+use CategoryDetailPage from "./pages/category-detail/category-detail-page.contract"
+use RestaurantDetailPage from "./pages/restaurant-detail/restaurant-detail-page.contract"
+use CheckoutPage from "./pages/checkout/checkout-page.contract"
+use SuccessPage from "./pages/success/success-page.contract"
+use Restaurant, Menu, FoodMenuItem, Category, CartItem from "./data/shapes.contract"
+
+routes nav
+  home "/"
+    categories "/categories"
+      category "/categories/:id"
+    restaurant "/restaurants/:id"
+    checkout "/checkout"
+      success "/success"
+  notfound
+
+// What a write to the cart or an order answers.
+shape Reply
+  ok: bool
+
+// The window's facts the app reads: its width, for the phone layout, and the system's colour scheme, for the
+// header's toggle.
+shape Viewport
+  width: number
+  prefersColorScheme: string
+
+// Droppy's breakpoint: narrower than this is a phone.
+fn isCompact(width: number): bool = width < 768
+
+// The restaurant a page shows, or one with no id when there is none by that id.
+fn restaurantOf(restaurants: Restaurant[], id: string): Restaurant = match first(restaurants.filter(r => r.id == id)) {
+  case some(r) => r,
+  case none => Restaurant(id="", name="", specialty="", photoUrl="", rating=0, categories=[], isNew=false,
+    isClosed=false, menu=Menu(food=[], dessert=[], drinks=[]))
+}
+
+fn dishesOf(r: Restaurant): FoodMenuItem[] = r.menu.food.concat(r.menu.dessert).concat(r.menu.drinks)
+
+// A restaurant's categories are names ("comfort food"); a category's id is its name in a path ("comfort-food").
+fn inCategory(restaurants: Restaurant[], id: string): Restaurant[] =
+  restaurants.filter(r => r.categories.map(c => c.toLowerCase().replaceAll(" ", "-")).includes(id))
+
+component App
+  resource viewport = exactViewport() as shape Viewport else empty(width=1024, prefersColorScheme="light")
+  resource restaurants = loadRestaurants() as shape Restaurant[]
+  resource categories = loadCategories() as shape Category[]
+  resource cart = loadCart() as shape CartItem[]
+  // The order last placed, for the success page.
+  resource order = loadOrder() as shape CartItem[]
+  mutation cartChanged as shape Reply refreshes cart
+  mutation ordered as shape Reply refreshes cart, order then afterOrder
+  // The scheme the header's toggle chose; "" until it is pressed, when the system's applies.
+  state scheme = ""
+  derive compact = isCompact(viewport.width)
+  derive shownScheme = scheme != "" ? scheme : viewport.prefersColorScheme
+  // The dishes of the restaurant on screen: where a dish added to the cart is found.
+  derive dishes = top(nav).name == "restaurant" ? dishesOf(restaurantOf(restaurants, top(nav).params.id)) : []
+
+  // A link's or a button's path; "back" is the page before (Mealdrop's `navigate(-1)`). The browser's Back and
+  // Forward arrive here too.
+  action follow(url: string)
+    if url == "back"
+      nav = back(nav)
+    else
+      nav = go(nav, url)
+  action toCheckout
+    nav = go(nav, "/checkout")
+  action toggleScheme
+    let next = shownScheme == "dark" ? "light" : "dark"
+    scheme = next
+    setScheme(next)
+
+  // How many of a dish the cart holds. Mealdrop's cart keeps the whole dish, so the dish is found where it
+  // was picked: in the cart already, or on the restaurant's menu.
+  action save(id: number, quantity: number)
+    match first(cart.filter(i => i.id == id))
+      case some(item)
+        send cartChanged = saveCartItem(id, item.name, item.description, item.price, quantity)
+      case none
+        match first(dishes.filter(d => d.id == id))
+          case some(dish)
+            send cartChanged = saveCartItem(id, dish.name, dish.description, dish.price, quantity)
+          case none
+            refresh cart
+  action remove(id: number)
+    send cartChanged = removeCartItem(id)
+  action complete(firstName: string, lastName: string, email: string, phone: string, address: string,
+      postcode: string, city: string)
+    if not pending(ordered)
+      send ordered = placeOrder(firstName, lastName, email, phone, address, postcode, city)
+  action afterOrder
+    if match ordered { case some(r) => r.ok, case none => false }
+      nav = go(nav, "/success")
+  action retry
+    refresh restaurants
+
+  view
+    view navigationKey=`${top(nav).id}` navigate=follow width="100%" height="100%" testId="app"
+      for e in [top(nav)] key=e.id
+        column navigationKey=`${e.id}` position="absolute" inset=0 testId=`route-${e.name}`
+          if e.name == "home"
+            HomePage(restaurants=restaurants, categories=categories, status=(pending(restaurants) ? "loading" : "success"),
+              cartItems=cart, currency="EUR", compact=compact, navigate=follow, saveItem=save, removeItem=remove,
+              checkout=toCheckout, toggleScheme=toggleScheme)
+          if e.name == "categories"
+            CategoryListPage(categories=categories, cartItems=cart, currency="EUR", compact=compact, navigate=follow,
+              saveItem=save, removeItem=remove, checkout=toCheckout, toggleScheme=toggleScheme)
+          if e.name == "category"
+            CategoryDetailPage(categoryId=e.params.id, categories=categories,
+              restaurants=inCategory(restaurants, e.params.id), status=(pending(restaurants) ? "loading" : "success"),
+              cartItems=cart, currency="EUR", compact=compact, navigate=follow, saveItem=save, removeItem=remove,
+              checkout=toCheckout, toggleScheme=toggleScheme)
+          if e.name == "restaurant"
+            RestaurantDetailPage(restaurant=restaurantOf(restaurants, e.params.id),
+              status=(pending(restaurants) ? "loading" : failed(restaurants) ? "error"
+                : restaurantOf(restaurants, e.params.id).id == "" ? "not-found" : "success"),
+              cartItems=cart, currency="EUR", compact=compact, navigate=follow, saveItem=save, removeItem=remove,
+              checkout=toCheckout, toggleScheme=toggleScheme, retry=retry)
+          if e.name == "checkout"
+            CheckoutPage(cartItems=cart, currency="EUR", compact=compact, navigate=follow, saveItem=save,
+              removeItem=remove, checkout=toCheckout, toggleScheme=toggleScheme, completeOrder=complete)
+          if e.name == "success"
+            SuccessPage(orderItems=order, cartItems=cart, currency="EUR", compact=compact, navigate=follow,
+              saveItem=save, removeItem=remove, checkout=toCheckout, toggleScheme=toggleScheme)
+          if e.name == "notfound"
+            NotFoundPage(cartItems=cart, compact=compact, navigate=follow, saveItem=save, removeItem=remove,
+              checkout=toCheckout, toggleScheme=toggleScheme)
+
+// A path the app has no page for, in the page template: Mealdrop's "can't find this page", with a way home.
+component NotFoundPage
+  props
+    cartItems: CartItem[]
+    compact: bool
+    navigate: action
+    saveItem: action
+    removeItem: action
+    checkout: action
+    toggleScheme: action
+  view
+    PageTemplate(type="default", cartItems=cartItems, currency="EUR", compact=compact, navigate=navigate,
+      saveItem=saveItem, removeItem=removeItem, checkout=checkout, toggleScheme=toggleScheme)
+      column flex=1 testId="not-found-page"
+        ErrorBlock(title="We can't find this page", body="This page doesn’t exist, keep looking.", buttonText="Home",
+          buttonClick=navigate("/"))
+          AnimatedIllustration(animation="Error")

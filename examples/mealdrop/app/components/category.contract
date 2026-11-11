@@ -1,0 +1,34 @@
+use Body, Label from "./typography.contract"
+use Card from "./card.contract"
+
+style Tile
+  position="relative" display="flex" flex-direction="row" align-items="flex-start" width="100%" min-width=50
+  max-height=309 border-radius="radius.card" cursor="pointer" transition="opacity 150ms ease"
+  :hover
+    opacity = 0.9
+
+// A food category: a photograph with its name on a dark chip, or, `round`, a card with a round photo and
+// the name under it (the home page's carousel). A phone (`compact`) gets the smaller round photo.
+component Category
+  props
+    title: string
+    photoUrl: string
+    round: bool
+    compact: bool
+  view
+    column
+      if round
+        column width="100%" min-width=50 max-width=200 testId=title
+          Card(padded=false, interactive=true)
+            column align-items="center" padding=(compact ? "24px 32px" : "24px 0")
+              image photoUrl alt="restaurant category" width=(compact ? 72 : 104) height=(compact ? 72 : 104)
+                min-width=(compact ? 72 : 104) border-radius="50%" object-fit="cover"
+              row padding-top="space.xs"
+                Body(label=title, size="M", weight="regular")
+      else
+        row class=Tile testId=title
+          image photoUrl alt="restaurant category" width="100%" min-height=50 max-height=300 object-fit="cover"
+            border-radius="radius.card"
+          row position="absolute" top="space.sm" left="space.sm" padding="8px 16px" border-radius="radius.card"
+            background-color="chip.contrast-bg" color="text.on-inverse" text-shadow="2px 1px 2px rgb(0 0 0 / 50%)"
+            Label(label=title, size=18, weight=500)

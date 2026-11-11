@@ -1,0 +1,31 @@
+use Button from "./button.contract"
+use Heading, Body from "./typography.contract"
+
+// A titled section of a page, with an optional clear button beside its title ("View all"). Droppy pads it
+// on the leading side only below 1024px; the page passes `compact` there.
+component PageSection
+  props
+    title: string
+    topButtonLabel: string
+    compact: bool
+    topButtonPress: action
+  slot
+  view
+    column box-sizing="border-box" width="100%" max-width=(compact ? "none" : "1600px") margin=(compact ? "0" : "0 auto")
+      padding=(compact ? "16px 0 16px 16px" : "0 24px") testId="page-section"
+      row align-items="center" justify-content="space-between" margin-bottom="space.sm"
+        Heading(label=title, level=2)
+        if topButtonLabel != ""
+          Button(label=topButtonLabel, icon="none", clear=true, round=false, large=false, disabled=false, press=topButtonPress)
+      children
+
+// A section with stand-in content, for the story.
+component PageSectionExample
+  props
+    title: string
+    topButtonLabel: string
+    compact: bool
+    topButtonPress: action
+  view
+    PageSection(title=title, topButtonLabel=topButtonLabel, compact=compact, topButtonPress=topButtonPress)
+      Heading(label="Hello Dummy Content", level=1)

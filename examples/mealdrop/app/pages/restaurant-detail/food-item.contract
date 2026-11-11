@@ -1,0 +1,36 @@
+use Heading, Body, Label from "../../components/typography.contract"
+use money from "../../data/shapes.contract"
+
+// Card's surface-card sits too close to the menu band's sunken surface, so the item lifts to the overlay
+// surface and floats on hover, as Droppy's food tiles do.
+style Tile
+  display="flex" flex-direction="column" align-items="flex-start" width="100%" border="0" text-align="left" color="text.primary"
+  position="relative" box-sizing="border-box" overflow="hidden" border-radius="radius.card" padding="space.sm"
+  background-color="surface.overlay" cursor="pointer" outline="none" transition="box-shadow 100ms ease-in"
+  :hover
+    box-shadow = "0px 14px 26px 0px rgb(0 0 0 / 8%)"
+  :focus-visible
+    box-shadow = "0 0 0 1px focus.ring, 0 0 0 4px focus.halo"
+
+// One dish on a restaurant's menu: its name, description and price, and how many are in the cart.
+component FoodItem
+  props
+    name: string
+    description: string
+    price: number
+    // How many are in the cart; 0 shows no count.
+    quantity: number
+    currency: enum<"EUR", "USD">
+    press: action
+  view
+    button class=Tile press=press testId="food-item"
+      if quantity > 0
+        row position="absolute" top=0 right=0 width=35 height=35 box-sizing="border-box" padding=4 align-items="center"
+          justify-content="center" border-radius="radius.control" background-color="chip.contrast-bg" color="chip.contrast-text"
+          aria-label="food quantity" testId="food-quantity"
+          Label(label=quantity.toString(), size=18, weight=500)
+      Heading(label=name, level=4)
+      row margin-top="space.xxs" color="text.secondary"
+        Label(label=description, size=18, weight=400)
+      row margin-top="space.xs"
+        Body(label=money(price, currency), size="M", weight="regular")

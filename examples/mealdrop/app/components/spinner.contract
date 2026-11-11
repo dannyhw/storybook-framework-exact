@@ -1,0 +1,38 @@
+// Droppy's loader: three dots that cross into a closing arc, after a short fade in.
+keyframes spinnerDot
+  0% translate="0px 0px" opacity=0
+  15% opacity=1
+  100% translate="-60px 0px" opacity=1
+
+keyframes spinnerArcA
+  0% rotate="0deg"
+  50% rotate="45deg"
+  100% rotate="0deg"
+
+keyframes spinnerArcB
+  0% rotate="0deg"
+  50% rotate="-45deg"
+  100% rotate="0deg"
+
+// Invisible for the first 0.4 s, so a quick load never flashes it.
+keyframes spinnerFadeIn
+  0% opacity=0
+  40% opacity=0
+  100% opacity=1
+
+// An indeterminate loading indicator; its name is what a screen reader announces.
+component Spinner
+  props
+    label: string
+  view
+    row
+      row role="status" aria-label=label align-items="center" justify-content="center" animation="spinnerFadeIn 1s linear" testId="spinner"
+        svg width=100 height=100 viewBox="0 0 100 100" aria-hidden="true"
+          g
+            circle cx=95 cy=50 r=4 fill="palette.brand-500" animation="spinnerDot 1.2s linear infinite"
+            circle cx=95 cy=50 r=4 fill="palette.brand-500" animation="spinnerDot 1.2s linear -0.4s infinite"
+            circle cx=95 cy=50 r=4 fill="palette.brand-500" animation="spinnerDot 1.2s linear -0.8s infinite"
+          g transform="translate(-15 0)"
+            path d="M50 50L20 50A30 30 0 0 0 80 50Z" fill="palette.brand-200" transform-origin="50px 50px" rotate="90deg"
+            path d="M50 50L20 50A30 30 0 0 0 80 50Z" fill="palette.brand-200" transform-origin="50px 50px" animation="spinnerArcA 1.2s ease-in-out infinite"
+            path d="M50 50L20 50A30 30 0 0 1 80 50Z" fill="palette.brand-200" transform-origin="50px 50px" animation="spinnerArcB 1.2s ease-in-out infinite"

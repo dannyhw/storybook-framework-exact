@@ -1,0 +1,17 @@
+use Label from "./typography.contract"
+
+// Droppy capitalises each word with `text-transform`; spelled out here so every host shows the same.
+fn capitalise(words: string): string = words.split(" ").map(w => `${w.slice(0, 1).toUpperCase()}${w.slice(1)}`).join(" ")
+
+// A short tag on a card: a cuisine, a "new" flag. Droppy sets the positive one bold; Hind has no bold
+// face here, so it is medium.
+component Badge
+  props
+    text: string
+    variant: enum<"neutral", "positive">
+  view
+    row
+      row padding="3px 8px" border-radius="radius.control" testId="badge"
+        background-color=(variant == "positive" ? "badge.positive-bg" : "badge.bg")
+        color=(variant == "positive" ? "badge.positive-text" : "badge.text")
+        Label(label=capitalise(text), size=16, weight=(variant == "positive" ? 500 : 400))

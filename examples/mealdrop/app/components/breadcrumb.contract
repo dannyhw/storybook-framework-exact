@@ -1,0 +1,28 @@
+use Label from "./typography.contract"
+
+// One step of the trail. An empty `href` is a step that is not a link (the current page, usually).
+shape BreadcrumbItem
+  label: string
+  href: string
+
+// The trail of pages above the current one. A step with an `href` calls `navigate` with it, so the app's
+// router moves; the link keeps the address for a new tab or a screen reader.
+component Breadcrumb
+  props
+    items: BreadcrumbItem[]
+    navigate: action
+  view
+    nav aria-label="breadcrumb" margin-top="space.md" margin-bottom="space.md"
+      row role="list" align-items="center" flex-wrap="wrap" color="text.secondary"
+        for item, i in items key=`${item.href}|${item.label}`
+          row role="listitem" align-items="center"
+            if item.href != ""
+              link href=item.href press=navigate(item.href) text-decoration="underline" color="text.secondary"
+                aria-current=(i == items.length - 1 ? "page" : "false") testId=`crumb-${i}`
+                Label(label=item.label.toLowerCase(), size=16, weight=400)
+            else
+              row aria-current=(i == items.length - 1 ? "page" : "false") testId=`crumb-${i}`
+                Label(label=item.label.toLowerCase(), size=16, weight=400)
+            if i < items.length - 1
+              row margin-left="space.xxs" margin-right="space.xxs" aria-hidden="true"
+                Label(label="/", size=16, weight=400)

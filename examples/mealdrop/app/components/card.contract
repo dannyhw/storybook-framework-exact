@@ -1,0 +1,37 @@
+use Heading, Body from "./typography.contract"
+
+style Shell
+  box-sizing="border-box" overflow="hidden" border-radius="radius.card" background-color="surface.card"
+
+style Interactive
+  box-sizing="border-box" overflow="hidden" border-radius="radius.card" background-color="surface.card"
+  cursor="pointer" transition="opacity 150ms ease"
+  :hover
+    opacity = 0.9
+
+// A plain surface for content: bare by default, since what it holds usually pads itself.
+component Card
+  props
+    padded: bool
+    interactive: bool
+  slot
+  view
+    column
+      if interactive
+        column class=Interactive padding=(padded ? 24 : 0) testId="card"
+          children
+      else
+        column class=Shell padding=(padded ? 24 : 0) testId="card"
+          children
+
+// A card with a heading and a line of text, for the story.
+component CardExample
+  props
+    padded: bool
+    interactive: bool
+  view
+    column max-width=360
+      Card(padded=padded, interactive=interactive)
+        column gap=8
+          Heading(label="Burger Kingdom", level=4)
+          Body(label="Fast food · 1.2 km · 20-30 min", size="S", weight="regular")

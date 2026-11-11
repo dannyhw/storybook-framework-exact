@@ -1,0 +1,11 @@
+use Label from "./typography.contract"
+
+fn reviewWord(rating: number): string = rating >= 5 ? "Excellent" : rating >= 4 ? "Very good" : rating >= 2 ? "Adequate" : "Very poor"
+
+// A restaurant's average rating as one quiet line: "★ 4.3 Very good", or "No reviews yet" for 0.
+component Review
+  props
+    rating: number
+  view
+    row align-items="center" color="text.review" testId="review"
+      Label(label=(rating == 0 ? "No reviews yet" : `★ ${rating.toFixed(1)} ${reviewWord(rating)}`), size=16, weight=400)
