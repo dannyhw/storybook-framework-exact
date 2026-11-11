@@ -46,6 +46,15 @@
   "bin": {
     "storybook-exact": "./dist/node/cli.js"
   },
+  "typescript": {
+    "contentMapper": {
+      "exec": [
+        "node",
+        "./dist/node/content-mapper.js"
+      ],
+      "compilerOptions": []
+    }
+  },
   "files": [
     "dist",
     "contract.d.ts",
@@ -78,7 +87,7 @@
     "@types/node": "^22.19.1",
     "playwright-core": "^1.56.0",
     "storybook": "^10.6.7",
-    "typescript": "^5.9.3",
+    "typescript": "7.1.0-beta",
     "vite": "^8.0.0",
     "vitest": "^4.0.0"
   },

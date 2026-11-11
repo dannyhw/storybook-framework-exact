@@ -24,7 +24,7 @@ const CONTENT_TYPES: Record<string, string> = {
 
 export interface ExactPluginOptions extends ToolchainOptions {
   log?: Log;
-  /** Write `<name>.d.contract.ts` beside each imported Contract file. Default true. */
+  /** Write `<name>.d.contract.ts` beside each imported Contract file, for a TypeScript without content mappers. Default false. */
   typegen?: boolean;
 }
 
@@ -122,7 +122,7 @@ export function exact(options: ExactPluginOptions = {}): Plugin {
       const source = readFileSync(file, 'utf8');
       const { descriptors, sources } = builder.describe(file, parseComponents(source), !building);
       // An installed package's directory is not the author's to write in.
-      if (options.typegen !== false && !file.split(/[\\/]/).includes('node_modules')) writeDeclarations(file, source);
+      if (options.typegen === true && !file.split(/[\\/]/).includes('node_modules')) writeDeclarations(file, source);
       // Any Contract source of the app may be one this file uses: a change to it gives the module a new revision.
       for (const source of sources) this.addWatchFile(source);
 

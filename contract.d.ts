@@ -1,6 +1,7 @@
-// The fallback typing for a `.contract` import, for a project that turns the framework's `typegen` off.
-// With typegen (the default) each Contract file gets a `<name>.d.contract.ts` beside it, which types its
-// named exports and their args; TypeScript reads those with `allowArbitraryExtensions`.
+// The loosest typing for a `.contract` import: every component by name, its args unchecked. For a project
+// that neither registers the framework as a TypeScript content mapper (TypeScript 7.1: `contentMappers` in
+// tsconfig.json) nor has it write `<name>.d.contract.ts` beside each file (`typegen`), both of which type
+// each component's args.
 //
 // Use with `"types": ["storybook-framework-exact/contract"]` in tsconfig.json.
 declare module '*.contract' {

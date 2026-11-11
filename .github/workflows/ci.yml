@@ -20,6 +20,8 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm test
+      # TypeScript reads the example's Contract files through the framework, built above.
+      - run: npm run typecheck -w examples/basic
 
       # The toolchain (Exact's checkout, its compiler build, the pinned Bun) is keyed by the commit the
       # framework pins and the Cargo profile it builds, so it is built once per pin. Restored and saved as

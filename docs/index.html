@@ -214,7 +214,7 @@ npm run example:mealdrop      <span class="cm"># Storybook on :6117; the first r
 
   <rect class="box" x="18" y="104" width="274" height="84" rx="6"/>
   <text class="h" x="28" y="124">node/vite-plugin.ts</text>
-  <text class="m" x="28" y="142">load(".contract") → descriptors, typegen</text>
+  <text class="m" x="28" y="142">load(".contract") → descriptors</text>
   <text class="m" x="28" y="158">dev middleware: /exact-assets/&lt;id&gt;/…</text>
   <text class="m" x="28" y="174">static build: emits every component's build</text>
 
@@ -304,7 +304,7 @@ npm run example:mealdrop      <span class="cm"># Storybook on :6117; the first r
 <ul>
   <li>The props come from <code>parseComponents</code> (<code>node/contract.ts</code>), a small text reader: top-level <code>component Name</code>, then section headers, then <code>name: type</code> lines. It does not run the compiler, so an import is instant and needs no toolchain.</li>
   <li><code>arg-types.ts</code> turns the props into controls: <code>string</code> → text, <code>number</code> → number, <code>bool</code> → toggle, <code>enum&lt;…&gt;</code> → select, <code>color</code> → colour, shapes and lists → object editor, <code>action</code> → an Actions entry.</li>
-  <li>The same parse writes <code>counter.d.contract.ts</code> beside the file, so <code>Meta&lt;typeof Counter&gt;</code> type-checks args.</li>
+  <li>TypeScript gets the file through the same parse: the framework is a TypeScript 7.1 <a href="#faq">content mapper</a> for <code>.contract</code> files (<code>node/mapper.ts</code>), so <code>Meta&lt;typeof Counter&gt;</code> type-checks args with nothing written beside the file.</li>
   <li>The module watches <b>every</b> Contract source of the app, so any edit gives it a new <code>revision</code>. That is how the preview learns a build may be stale.</li>
 </ul>
 
@@ -495,7 +495,7 @@ component Story
 <ul>
   <li>The generated root must sit at the app's top level: a <code>use</code> may not leave the app directory.</li>
   <li>Exact's build would otherwise compile the app's own <code>app.ts</code>, Rust and native modules. The shadow's <code>app.json</code> drops those keys.</li>
-  <li>Nothing generated lands in your source tree (except the optional <code>.d.contract.ts</code>).</li>
+  <li>Nothing generated lands in your source tree.</li>
   <li>A library is not mirrored: the shadow is an empty app with the package symlinked into <code>node_modules</code>, because Exact applies a package's tokens only when it is used by name.</li>
   <li>The app's design file is named in the shadow's manifest, because Exact only finds <code>app.tamber</code> by itself beside a file called <code>app.contract</code>.</li>
 </ul>
@@ -506,7 +506,10 @@ component Story
 <p>Exact has no published package, so the first <code>storybook dev</code> fetches it at one pinned commit and builds its compiler with Cargo. That happens once per machine (a minute or two with a warm Cargo cache) and lands in <code>~/.cache/storybook-framework-exact</code>, never in your project. <code>npx storybook-exact setup</code> does it ahead of time, in CI for example, and the <code>exactRoot</code> option uses a checkout you already have (<a href="https://github.com/dannyhw/storybook-framework-exact#getting-exact">README, "Getting Exact"</a>).</p>
 
 <h3>Does it write anything into my app?</h3>
-<p>No. Builds happen in a copy of your Contract sources and assets under <code>node_modules/.cache</code>. The one exception is optional: the <code>.d.contract.ts</code> declarations that type your story's args, written beside each imported file.</p>
+<p>No. Builds happen in a copy of your Contract sources and assets under <code>node_modules/.cache</code>, and TypeScript reads your Contract files directly (next question).</p>
+
+<h3>How are a story's args typed?</h3>
+<p>From the component's props, read from the Contract file each time TypeScript looks. TypeScript 7.1 (in beta) lets a package say how a file that is not TypeScript reads as TypeScript, and the framework does that for <code>.contract</code> files: you name it under <code>contentMappers</code> in <code>tsconfig.json</code> and run <code>tsc --runExternalCode</code>. A wrong or misspelt arg is an error in the story, a shape taken from another Contract file is checked too, and Go to Definition on an arg opens the prop in the Contract file. With an older TypeScript the framework writes a <code>.d.contract.ts</code> beside each file instead (<a href="https://github.com/dannyhw/storybook-framework-exact#types">README, "Types"</a>). This part is an experiment on a beta.</p>
 
 <h3>Is the component in my story the one my app ships?</h3>
 <p>Yes. The generated root around it is ordinary Contract, and Exact's own compiler and runtime build it. The framework changes two things only: when the app starts, and who answers its data. The framework reuses the runtime modules between builds to be fast, and a test in CI holds that to the same bytes as Exact's whole build. What a story leaves out is the rest of your app: its <code>app.ts</code>, Rust and native modules are not built, so a component that owns data gets it from the story's mocks.</p>
@@ -596,6 +599,7 @@ component Story
   <li><code>src/preview/render.ts</code>: <code>renderToCanvas</code> top to bottom, then <code>bridge</code>; <code>src/preview/address.ts</code> for apps with routes.</li>
   <li><code>src/node/build.ts</code>: <code>build</code>, <code>make</code>, <code>storybookEntry</code>.</li>
   <li><code>src/node/shadow.ts</code>, then <code>src/node/stage.ts</code>, then <code>src/node/toolchain.ts</code>.</li>
+  <li><code>src/node/typegen.ts</code> and <code>src/node/mapper.ts</code>: a Contract file as TypeScript sees it.</li>
 </ol>
 <footer class="meta"><a href="https://github.com/dannyhw/storybook-framework-exact">dannyhw/storybook-framework-exact</a> · MIT · not affiliated with Expo or Storybook.</footer>
 </main>

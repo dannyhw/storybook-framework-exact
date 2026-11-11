@@ -17,7 +17,8 @@ const usage = `storybook-exact <command>
 
   setup    Fetch Exact at the pinned commit and build its compiler (skips what is already there)
   where    Print where the checkout and the cache are
-  types    Write <name>.d.contract.ts beside every .contract file under the given directories (default: .)
+  types    Write <name>.d.contract.ts beside every .contract file under the given directories (default: .),
+           for a TypeScript older than 7.1, which cannot read Contract files through the framework
 
 Options:
   --exact-root <dir>      Use this Exact checkout as it is (also EXACT_ROOT)

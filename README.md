@@ -30,6 +30,7 @@ For something larger, [`examples/mealdrop`](examples/mealdrop) is Storybook's Me
 ## Requirements
 
 - Node 20.19 or newer, and Storybook 10 with Vite.
+- For typed `.contract` imports, TypeScript 7.1, which is in beta (`npm install -D typescript@beta`). An older TypeScript works with generated declaration files: see [Types](#types).
 - What Exact itself needs to build: [Rust](https://rustup.rs) (through rustup, which installs the toolchain Exact pins) and `git`.
 - macOS or Linux. Windows is untested.
 
@@ -55,10 +56,14 @@ const config: StorybookConfig = {
 export default config;
 ```
 
-For typed `.contract` imports, add this to `tsconfig.json`:
+For typed `.contract` imports, name the framework as the content mapper of `.contract` files in `tsconfig.json`, and let `tsc` run it (see [Types](#types)):
 
 ```json
-{ "compilerOptions": { "allowArbitraryExtensions": true } }
+{ "contentMappers": [{ "package": "storybook-framework-exact", "extensions": [".contract"] }] }
+```
+
+```sh
+tsc --runExternalCode
 ```
 
 ### Getting Exact
@@ -81,7 +86,7 @@ framework: { name: 'storybook-framework-exact', options: { exactRoot: '../exact'
 |---|---|---|
 | `exactRoot` | `EXACT_ROOT` | Use this Exact checkout instead of the managed one |
 | `exactCommit` | `EXACT_COMMIT` | Fetch another commit of `expo/exact` for the managed checkout |
-| `typegen` | | Write `<name>.d.contract.ts` beside imported Contract files (default `true`) |
+| `typegen` | | Write `<name>.d.contract.ts` beside imported Contract files, for a TypeScript older than 7.1 (default `false`) |
 | | `STORYBOOK_EXACT_CACHE` | Where the managed checkout and Bun are kept |
 | | `BUN` | The Bun to run Exact's build scripts with |
 | | `STORYBOOK_EXACT_WHOLE_BUILDS` | Set to `1` to run Exact's whole web build for every component (see [How it works](#how-it-works)) |
@@ -219,11 +224,24 @@ export default preview;
 
 ### Types
 
-The framework writes `<name>.d.contract.ts` beside each Contract file a story imports. It declares the file's components with their args, and its shapes, so `Meta<typeof Button>` checks a story's args and a source mock can be typed with the component's own shapes. Commit these files or ignore them (`*.d.contract.ts`); to write them without starting Storybook, before `tsc` in CI for example:
+`import { Button } from './button.contract'` is typed: the file's components with their args, and its shapes, so `Meta<typeof Button>` checks a story's args and a source mock can be typed with the component's own shapes. A shape one Contract file takes from another (`use Restaurant from "./data/shapes.contract"`) is that file's shape.
+
+TypeScript reads the Contract file itself, through the framework, which is a [content mapper](https://devblogs.microsoft.com/typescript/announcing-typescript-7-1-beta/) for `.contract` files. That needs TypeScript 7.1 (in beta) and the `contentMappers` entry in `tsconfig.json` shown under [Install](#install). Nothing is written beside your sources, and nothing can be stale.
+
+- **On the command line**, a content mapper is code TypeScript runs, so TypeScript asks to be told it may: `tsc --runExternalCode`. Without the flag `tsc` stops with `TS18068`.
+- **In an editor** that uses TypeScript 7.1, the workspace must be trusted and content mappers allowed (in VS Code, the `js/ts.contentMappers.enabled` setting turns them off). "Go to Definition" on a story's arg, or on the imported component, then opens the prop or the component in the Contract file, and a `use` of a file that is not there is underlined in the Contract file.
+
+This part is an experiment on a beta: the mapper speaks version 1 of a protocol TypeScript has not yet documented, and has been run with `tsc` and TypeScript's language server, not yet in VS Code itself.
+
+#### An older TypeScript
+
+Before 7.1, TypeScript reads a `<name>.d.contract.ts` beside each Contract file instead, with `"allowArbitraryExtensions": true` under `compilerOptions`. The framework writes one for each Contract file a story imports when its `typegen` option is on, and for every file under a directory with:
 
 ```sh
 npx storybook-exact types app
 ```
+
+Commit these files or ignore them (`*.d.contract.ts`). In them a shape taken from another file is `unknown`.
 
 ## How it works
 
@@ -244,7 +262,7 @@ A component is built when you open one of its stories, and again after an edit, 
 - **An edit rebuilds the stories you have open before the page asks**, the one on screen first, so a hot update shows in well under a second.
 - **Switching between stories that are built** takes about 50 ms: the stylesheet, a fresh copy of the runtime (10 to 25 ms) and the app's start. Storybook shows its spinner after 100 ms, so there is none.
 
-Builds happen in a copy of your app's Contract sources and assets kept under `node_modules/.cache`, so nothing is generated into your source tree except the optional type declarations, and your app's own `app.ts`, Rust module and native modules are not part of a story. A library is not copied: the build is an empty app that depends on it.
+Builds happen in a copy of your app's Contract sources and assets kept under `node_modules/.cache`, so nothing is generated into your source tree, and your app's own `app.ts`, Rust module and native modules are not part of a story. A library is not copied: the build is an empty app that depends on it.
 
 ## Limitations
 

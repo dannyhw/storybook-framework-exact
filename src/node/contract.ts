@@ -21,23 +21,39 @@ function uncommented(line: string): string {
   return line;
 }
 
-/** The components a Contract file declares, in order. */
-export function parseComponents(source: string): ComponentInfo[] {
+/**
+ * Where each name is declared, as an offset in the source: a component by its name (`Row`), a prop or an
+ * injected value by `Row.item`, a shape by its name and a shape's field by `Item.id`.
+ */
+export type Marks = Map<string, number>;
+
+/** A source's lines with the offset each starts at, without their trailing comments. */
+export function* lines(source: string): Generator<{ line: string; offset: number }> {
+  let offset = 0;
+  for (const raw of source.split('\n')) {
+    yield { line: uncommented(raw.endsWith('\r') ? raw.slice(0, -1) : raw), offset };
+    offset += raw.length + 1;
+  }
+}
+
+/** The components a Contract file declares, in order. `marks` is given where each and its props are declared. */
+export function parseComponents(source: string, marks?: Marks): ComponentInfo[] {
   const components: ComponentInfo[] = [];
   let current: ComponentInfo | null = null;
   let sectionIndent = -1;
   let section: string | null = null;
   let routes = false;
-  for (const raw of source.split(/\r?\n/)) {
-    const line = uncommented(raw);
+  for (const { line, offset } of lines(source)) {
     if (!line.trim()) continue;
     const indent = line.length - line.trimStart().length;
     const text = line.trim();
     if (indent === 0) {
       if (/^routes\b/.test(text)) routes = true;
-      const name = /^component\s+([A-Za-z_]\w*)/.exec(text)?.[1];
+      const declared = /^component\s+([A-Za-z_]\w*)/.exec(text);
+      const name = declared?.[1];
       current = name ? { name, props: [], inject: [], slot: false, root: false } : null;
       if (current) components.push(current);
+      if (declared && name) marks?.set(name, offset + declared[0].length - name.length);
       sectionIndent = -1;
       section = null;
       continue;
@@ -51,7 +67,10 @@ export function parseComponents(source: string): ComponentInfo[] {
       if (section && DATA_SECTIONS.has(section)) current.root = true;
     } else if (section === 'props' || section === 'inject') {
       const field = /^([A-Za-z_]\w*)\s*:\s*(.+)$/.exec(text);
-      if (field) current[section].push({ name: field[1]!, type: field[2]!.trim() });
+      if (field) {
+        current[section].push({ name: field[1]!, type: field[2]!.trim() });
+        marks?.set(`${current.name}.${field[1]}`, offset + indent);
+      }
     }
   }
   // `routes` belongs to an app's root file, and its first component is that root.

@@ -42,8 +42,9 @@ export type Preview = ProjectAnnotations<ExactRenderer>;
 export interface FrameworkOptions extends ToolchainOptions {
   builder?: BuilderOptions;
   /**
-   * Write `<name>.d.contract.ts` beside each imported Contract file, so its components and their args are
-   * typed (with `allowArbitraryExtensions` in tsconfig.json). Default true.
+   * Write `<name>.d.contract.ts` beside each imported Contract file, for a TypeScript older than 7.1 (with
+   * `allowArbitraryExtensions` in tsconfig.json). TypeScript 7.1 needs no files: name this package under
+   * `contentMappers` in tsconfig.json. Default false.
    */
   typegen?: boolean;
 }
