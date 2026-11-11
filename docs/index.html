@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How storybook-framework-exact works</title>
+<meta name="description" content="How the community Storybook framework for Expo's Exact turns a story into a small Exact app, builds it on demand and talks to it through Exact's data seam.">
+<style>
+  :root { --bg:#fff; --fg:#1c1c1c; --muted:#5f6368; --line:#d8dadd; --soft:#f4f5f6; --accent:#0b62c4; --a2:#7a3db8; --a3:#0b7a53; --warn:#9a5b00; --code:#f1f2f4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16171a; --fg:#e6e7e9; --muted:#a3a7ad; --line:#3a3d43; --soft:#1f2125; --accent:#74b3ff; --a2:#c79bf2; --a3:#6ed3a8; --warn:#e8b25a; --code:#24262b; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  h2 { font-size: 1.25rem; margin: 44px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.02rem; margin: 22px 0 6px; }
+  p, ul, ol { margin: 8px 0; }
+  li { margin: 3px 0; }
+  .meta { color: var(--muted); font-size: .9rem; }
+  code, pre { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { background: var(--code); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+  pre { background: var(--code); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 10px 0; }
+  pre code { background: none; padding: 0; overflow-wrap: normal; }
+  .cm { color: var(--muted); }
+  .k1 { color: var(--accent); } .k2 { color: var(--a2); } .k3 { color: var(--a3); }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: .93rem; }
+  th, td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  .scroll { overflow-x: auto; }
+  .note { border-left: 3px solid var(--accent); background: var(--soft); padding: 8px 12px; margin: 12px 0; border-radius: 0 6px 6px 0; }
+  .weak { border-left-color: var(--warn); }
+  nav ol { columns: 2; padding-left: 20px; font-size: .93rem; }
+  @media (max-width: 600px) { nav ol { columns: 1; } }
+  a { color: var(--accent); }
+  video { display: block; width: 100%; height: auto; margin: 14px 0; border: 1px solid var(--line); border-radius: 6px; }
+  footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cols > div { min-width: 0; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .pipe { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; margin: 12px 0; }
+  .pipe > div { flex: 1 1 150px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: var(--soft); font-size: .88rem; position: relative; }
+  .pipe b { display: block; font-size: .92rem; }
+  .pipe .t { color: var(--muted); font-size: .8rem; display: block; margin-top: 4px; }
+  .pipe .skip { border-style: dashed; }
+  svg { display: block; max-width: 100%; height: auto; }
+  svg text { font: 12px system-ui, sans-serif; fill: var(--fg); }
+  svg .h { font-weight: 600; font-size: 13px; }
+  svg .m { fill: var(--muted); font-size: 11px; }
+  svg .box { fill: var(--soft); stroke: var(--line); }
+  svg .lane { fill: none; stroke: var(--line); stroke-dasharray: 4 4; }
+  svg .ar { stroke: var(--accent); stroke-width: 1.5; fill: none; marker-end: url(#ah); }
+  svg .ar2 { stroke: var(--a2); stroke-width: 1.5; fill: none; marker-end: url(#ah2); }
+  svg .ar3 { stroke: var(--a3); stroke-width: 1.5; fill: none; marker-end: url(#ah3); }
+  svg .life { stroke: var(--line); stroke-width: 1; }
+  svg .lbl { fill: var(--accent); } svg .lbl2 { fill: var(--a2); } svg .lbl3 { fill: var(--a3); }
+</style>
+</head>
+<body>
+<main>
+<h1>How storybook-framework-exact works</h1>
+<p class="meta">A community <a href="https://storybook.js.org">Storybook</a> framework for Expo's Exact (web target): <a href="https://github.com/dannyhw/storybook-framework-exact">source on GitHub</a>, and the <a href="https://github.com/dannyhw/storybook-framework-exact#readme">README</a> for how to install it and write stories. This page is what happens underneath when you do: worth reading when something surprises you, or when you want to know what you are depending on. In a hurry? Read <a href="#short">the short version</a> and the <a href="#faq">questions</a>.</p>
+<p class="meta">Written 2026-11-11 against Exact pinned at <code>5434f4325d31</code>. Timings are from one Apple-silicon laptop.</p>
+
+<nav>
+<ol>
+  <li><a href="#short">The short version</a></li>
+  <li><a href="#vocab">Exact words you need</a></li>
+  <li><a href="#facts">Six facts that decide the design</a></li>
+  <li><a href="#parts">The moving parts</a></li>
+  <li><a href="#import">What a <code>.contract</code> import gives you</a></li>
+  <li><a href="#wrapper">The generated app</a></li>
+  <li><a href="#seam">The data seam</a></li>
+  <li><a href="#render">First render, step by step</a></li>
+  <li><a href="#events">What happens when…</a></li>
+  <li><a href="#build">The build and its caches</a></li>
+  <li><a href="#faq">Questions</a></li>
+  <li><a href="#weak">Known limits</a></li>
+  <li><a href="#changes">What would lift them</a></li>
+  <li><a href="#alts">How it compares</a></li>
+  <li><a href="#poke">See it for yourself</a></li>
+</ol>
+</nav>
+
+<h2 id="short">1. The short version</h2>
+<p>Exact cannot compile a single component, and its web runtime cannot unmount. So the framework turns every story into <b>a small Exact app</b>, builds that app on demand, and loads it into the canvas as an ES module. Storybook's args, actions and mocks reach the app through the one door Exact has for data, its <b>data seam</b>.</p>
+<ul>
+  <li><b>Import</b> a <code>.contract</code> file → you get a JSON description of its components (no compile).</li>
+  <li><b>Open a story</b> → the preview asks the dev server for that component's build; the server generates a root component around it, compiles, bundles and returns a manifest.</li>
+  <li><b>The preview</b> imports the bundle and starts the app with a bridge that answers "what are my args?", "this action was called" and "give me this data source".</li>
+  <li><b>Change a control</b> → the running app re-asks its args. No rebuild, no remount.</li>
+</ul>
+<video controls muted playsinline preload="metadata" src="demo.mp4" aria-label="Stories of Contract components in Storybook: controls, actions and an edit that updates in place"></video>
+<div class="note">If you know React Native Storybook: the generated root plays the part of <code>storybook.requires</code> (a generated entry that makes your code reachable), and the on-demand build behind a URL is Metro's lazy bundling. The difference is the unit: one bundle <i>per component</i>, not per app.</div>
+
+<h2 id="vocab">2. Exact words you need</h2>
+<div class="scroll"><table>
+  <tr><th>Word</th><th>Meaning</th></tr>
+  <tr><td>Contract</td><td>Exact's language. One or more <code>component</code>s per <code>.contract</code> file, indentation-structured: <code>props</code>, <code>state</code>, <code>action</code>, <code>view</code>.</td></tr>
+  <tr><td>root</td><td>The first component of the app's entry file. The only component allowed to own data.</td></tr>
+  <tr><td>resource</td><td>A value the root reads from outside: <code>resource todos = loadTodos() as shape Todo[]</code>. Can be re-asked.</td></tr>
+  <tr><td>mutation / <code>send</code></td><td>A write to the outside: <code>send added = addTodo(title)</code>. Carries typed arguments, gets a typed reply.</td></tr>
+  <tr><td>source</td><td>The name being called in a resource or mutation (<code>loadTodos</code>, <code>addTodo</code>). In a real app, <code>app.ts</code> or a Rust module implements it.</td></tr>
+  <tr><td>shape</td><td>A record type.</td></tr>
+  <tr><td>action prop</td><td>A prop of type <code>action</code>: a callback the parent passes. Its parameter types are implied by how the component calls it.</td></tr>
+  <tr><td><code>.tamber</code></td><td>The design file: tokens (<code>surface.card = light-dark(#fff, #222)</code>).</td></tr>
+  <tr><td>library</td><td>A package whose <code>exports</code> names a <code>.contract</code> file. Its tokens apply only when it is used by package name.</td></tr>
+</table></div>
+
+<h2 id="facts">3. Six facts about Exact that decide the design</h2>
+<p>Every odd-looking part of the framework, and every limit you will meet as a user, is the consequence of one row here.</p>
+<div class="scroll"><table>
+  <tr><th>Exact, at the pinned commit</th><th>So the framework…</th></tr>
+  <tr><td>Compiles an <b>app</b> (entry file + <code>app.json</code>), never a lone component.</td><td>generates a root component per story component and compiles that.</td></tr>
+  <tr><td>Only the root may own <code>resource</code>, <code>mutation</code>, <code>task</code>.</td><td>puts the args in a resource and each action in a mutation <i>on the generated root</i>; treats a component that owns data as a root itself.</td></tr>
+  <tr><td>All data crosses one seam: the runtime calls <code>data.answer(source, args)</code>.</td><td>replaces that function. This is the whole integration surface at runtime.</td></tr>
+  <tr><td>The web runtime mounts into <code>#exact-root</code>, keeps state in module globals, has no unmount.</td><td>imports a fresh copy of the bundle per mount; allows one story per document; shows docs stories in iframes.</td></tr>
+  <tr><td>Nothing reports an action prop's parameter types, except a compile error when a handler is wrong.</td><td>compiles the root repeatedly, reading the errors, until it fits ("signature inference").</td></tr>
+  <tr><td>No npm package, no stable API, changes daily.</td><td>pins one commit, builds its compiler from source, and guards every use of an internal with a check that fails loudly.</td></tr>
+</table></div>
+
+<h2 id="parts">4. The moving parts</h2>
+<div class="scroll">
+<svg viewBox="0 0 930 480" width="930" role="img" aria-label="Architecture: Node side, child processes and disk, browser preview">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker>
+    <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--a2)"/></marker>
+    <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--a3)"/></marker>
+  </defs>
+  <rect class="lane" x="5" y="5" width="300" height="468" rx="8"/>
+  <rect class="lane" x="315" y="5" width="290" height="468" rx="8"/>
+  <rect class="lane" x="615" y="5" width="310" height="468" rx="8"/>
+  <text class="h" x="18" y="26">Node: Storybook dev server / build</text>
+  <text class="h" x="328" y="26">Child processes and disk</text>
+  <text class="h" x="628" y="26">Browser: the preview iframe</text>
+
+  <rect class="box" x="18" y="40" width="274" height="50" rx="6"/>
+  <text class="h" x="28" y="60">preset.ts</text>
+  <text class="m" x="28" y="78">builder-vite + the plugin + the preview entry</text>
+
+  <rect class="box" x="18" y="104" width="274" height="84" rx="6"/>
+  <text class="h" x="28" y="124">node/vite-plugin.ts</text>
+  <text class="m" x="28" y="142">load(".contract") → descriptors, typegen</text>
+  <text class="m" x="28" y="158">dev middleware: /exact-assets/&lt;id&gt;/…</text>
+  <text class="m" x="28" y="174">static build: emits every component's build</text>
+
+  <rect class="box" x="18" y="202" width="274" height="116" rx="6"/>
+  <text class="h" x="28" y="222">node/build.ts — Builder</text>
+  <text class="m" x="28" y="240">describe() · build() · make()</text>
+  <text class="m" x="28" y="256">contract.ts: parse, wrapper, signatures</text>
+  <text class="m" x="28" y="272">shadow.ts: mirror of the app</text>
+  <text class="m" x="28" y="288">stage.ts: reuse of the runtime modules</text>
+  <text class="m" x="28" y="304">lock.ts: one build at a time per app</text>
+
+  <rect class="box" x="18" y="332" width="274" height="50" rx="6"/>
+  <text class="h" x="28" y="352">node/toolchain.ts</text>
+  <text class="m" x="28" y="370">clone pinned Exact, Bun, cargo build</text>
+
+  <rect class="box" x="328" y="170" width="264" height="50" rx="6"/>
+  <text class="h" x="338" y="190">contract build --json</text>
+  <text class="m" x="338" y="208">errors → action signatures (first build only)</text>
+
+  <rect class="box" x="328" y="222" width="264" height="50" rx="6"/>
+  <text class="h" x="338" y="242">exact-web-js js</text>
+  <text class="m" x="338" y="260">the compiler: app.js, app.css, names.js, plan</text>
+
+  <rect class="box" x="328" y="274" width="264" height="50" rx="6"/>
+  <text class="h" x="338" y="294">bun</text>
+  <text class="m" x="338" y="312">Exact's build.mjs once per kind; then bundling</text>
+
+  <rect class="box" x="328" y="332" width="264" height="120" rx="6"/>
+  <text class="h" x="338" y="352">node_modules/.cache/…/&lt;app&gt;/</text>
+  <text class="m" x="338" y="370">shadow/   mirror + generated roots</text>
+  <text class="m" x="338" y="386">build/    per-component work dirs</text>
+  <text class="m" x="338" y="402">stage/    runtime modules, kept</text>
+  <text class="m" x="338" y="418">kept/     last build + signatures, as JSON</text>
+  <text class="m" x="338" y="434">serve/    &lt;id&gt;/&lt;version&gt;/bundle.js, style.css</text>
+
+  <rect class="box" x="628" y="40" width="284" height="50" rx="6"/>
+  <text class="h" x="638" y="60">your *.stories.ts</text>
+  <text class="m" x="638" y="78">import { Button } from "./button.contract"</text>
+
+  <rect class="box" x="628" y="104" width="284" height="84" rx="6"/>
+  <text class="h" x="638" y="124">preview/render.ts</text>
+  <text class="m" x="638" y="142">render(): { component, args, sources }</text>
+  <text class="m" x="638" y="158">renderToCanvas(): manifest → css → import</text>
+  <text class="m" x="638" y="174">arg-types.ts: controls and actions from props</text>
+
+  <rect class="box" x="628" y="216" width="284" height="66" rx="6"/>
+  <text class="h" x="638" y="236">bridge.answer(source, args)</text>
+  <text class="m" x="638" y="254">storyArgs · storyAction_* · your mocks</text>
+  <text class="m" x="638" y="270">wire.ts: records ⇄ arrays, with checks</text>
+
+  <rect class="box" x="628" y="316" width="284" height="66" rx="6"/>
+  <text class="h" x="638" y="336">the Exact app, in #exact-root</text>
+  <text class="m" x="638" y="354">bundle.js?instance=N: generated root +</text>
+  <text class="m" x="638" y="370">your component + Exact's runtime</text>
+
+  <path class="ar" d="M292 122 C 400 70, 520 64, 628 64"/>
+  <text class="lbl" x="372" y="64">a JS module of descriptions</text>
+  <path class="ar2" d="M628 148 L 294 156"/>
+  <text class="lbl2" x="372" y="142">GET manifest.json (this is what builds)</text>
+  <path class="ar" d="M292 236 L 328 196"/>
+  <path class="ar" d="M292 252 L 328 246"/>
+  <path class="ar" d="M292 270 L 328 296"/>
+  <path class="ar" d="M292 300 L 328 372"/>
+  <path class="ar3" d="M592 436 C 650 462, 760 452, 770 386"/>
+  <text class="lbl3" x="640" y="472">bundle.js, style.css</text>
+  <path class="ar2" d="M740 316 L 740 284"/>
+  <path class="ar2" d="M800 284 L 800 316"/>
+  <text class="lbl2" x="812" y="304">ask / answer</text>
+  <path class="ar" d="M155 318 L 155 332"/>
+</svg>
+</div>
+<p>Three places code runs: <b>Node</b> (inside Storybook's own process), <b>child processes</b> (Exact's Rust compilers and Bun), and the <b>preview iframe</b>. The only channel from browser to server that the framework adds is one HTTP path: <code>exact-assets/&lt;id&gt;/…</code>.</p>
+
+<h2 id="import">5. What a <code>.contract</code> import gives you</h2>
+<p><code>vite-plugin.ts</code> <code>load()</code> answers the import with JSON. For <code>examples/basic/app/counter.contract</code>:</p>
+<pre><code>export const Counter = {
+  __exact: true,
+  name: "Counter",
+  props: [{ name: "start", type: "number" }, { name: "step", type: "number" }, { name: "changed", type: "action" }],
+  inject: [], slot: false, root: false,
+  id: "Counter-1d92e34f",                 <span class="cm">// name + digest of the file path</span>
+  file: "counter.contract",
+  defaults: { start: 0, step: 0 },       <span class="cm">// stand-ins for args a story leaves out</span>
+  manifest: "exact-assets/Counter-1d92e34f/manifest.json",
+  revision: "f3a59c1eeb031c91"            <span class="cm">// digest of every source of the app</span>
+};</code></pre>
+<ul>
+  <li>The props come from <code>parseComponents</code> (<code>node/contract.ts</code>), a small text reader: top-level <code>component Name</code>, then section headers, then <code>name: type</code> lines. It does not run the compiler, so an import is instant and needs no toolchain.</li>
+  <li><code>arg-types.ts</code> turns the props into controls: <code>string</code> → text, <code>number</code> → number, <code>bool</code> → toggle, <code>enum&lt;…&gt;</code> → select, <code>color</code> → colour, shapes and lists → object editor, <code>action</code> → an Actions entry.</li>
+  <li>The same parse writes <code>counter.d.contract.ts</code> beside the file, so <code>Meta&lt;typeof Counter&gt;</code> type-checks args.</li>
+  <li>The module watches <b>every</b> Contract source of the app, so any edit gives it a new <code>revision</code>. That is how the preview learns a build may be stale.</li>
+</ul>
+
+<h2 id="wrapper">6. The generated app</h2>
+<div class="cols">
+<div>
+<p><b>Your component</b> (<code>counter.contract</code>)</p>
+<pre><code>component Counter
+  props
+    <span class="k1">start: number</span>
+    <span class="k1">step: number</span>
+    <span class="k2">changed: action</span>
+  state count = start
+  action bump
+    count = count + step
+    <span class="k2">changed(count + step)</span>
+  view
+    row gap=12 align-items="center"
+      text `Count: ${count}`
+      button press=bump
+        text `+${step}`</code></pre>
+</div>
+<div>
+<p><b>What the framework writes</b> (<code>shadow/__story_Counter-1d92e34f.contract</code>)</p>
+<pre><code>use Counter from "./counter.contract"
+
+shape StoryArgs
+  <span class="k1">start: number</span>
+  <span class="k1">step: number</span>
+
+shape StoryAck
+  ok: bool
+
+component Story
+  <span class="k1">resource args = storyArgs() as shape StoryArgs</span>
+  <span class="k2">mutation did_changed as shape StoryAck</span>
+  <span class="k2">action on_changed(a0: number)</span>
+    <span class="k2">send did_changed = storyAction_changed(a0)</span>
+  view
+    Counter(start=args.start, step=args.step, changed=on_changed)</code></pre>
+</div>
+</div>
+<div class="scroll"><table>
+  <tr><th>In the component</th><th>In the generated root</th><th>Answered in the browser by</th></tr>
+  <tr><td>value props, <code>inject</code> values</td><td>fields of one resource, source <code>storyArgs</code></td><td>the story's args</td></tr>
+  <tr><td>each <code>action</code> prop <code>x</code></td><td>action <code>on_x(a0: T…)</code> that sends mutation <code>did_x</code> to source <code>storyAction_x</code></td><td><code>args.x(…)</code>: a <code>fn()</code> spy or the Actions panel</td></tr>
+  <tr><td>a <code>slot</code></td><td>one line of placeholder text as children</td><td>—</td></tr>
+  <tr><td>a view that starts with <code>if</code>/<code>for</code>/<code>match</code></td><td>the component is placed inside a <code>column</code></td><td>—</td></tr>
+</table></div>
+<h3>Where does <code>a0: number</code> come from?</h3>
+<p>The source says <code>changed: action</code>, not what it is called with. <code>inferSignatures</code> (<code>node/build.ts</code>) writes the root with handlers that take nothing, runs <code>contract build --json --errors-only</code>, and reads the refusals (<code>refineSignatures</code>, <code>node/contract.ts</code>):</p>
+<ol>
+  <li><code>type-call-arity</code> / <code>analyze-action-arity</code>: "takes 0 argument(s), given 1" → the handler gets one parameter, typed with a made-up shape <code>StoryUnknown</code>.</li>
+  <li><code>type-argument</code> / <code>type-handler-payload</code>: "expects StoryUnknown, given number" → that parameter is <code>number</code>.</li>
+  <li>Repeat until it compiles (at most 16 rounds; typically 2–3, about 10 ms each). The result is saved in <code>kept/&lt;id&gt;.json</code> and reused until it stops compiling.</li>
+</ol>
+<div class="note weak">This reads the compiler's English messages with regular expressions. A reworded message would break it; see <a href="#weak">Known limits</a>.</div>
+<h3>Components that own data</h3>
+<p>A component with its own <code>resource</code>/<code>mutation</code>/<code>task</code>, or the first component of a file with <code>routes</code>, cannot be placed inside another root. It is compiled <b>as it is</b>, and its story answers its sources:</p>
+<pre><code>export const Seeded = { parameters: { exact: { sources: {
+  todos: () => [{ id: '1', title: 'Buy milk', done: false }],
+  addTodo: (title) => ({ count: 2 }),
+} } } };</code></pre>
+
+<h2 id="seam">7. The data seam</h2>
+<p>Exact's generated <code>main.js</code> ends with <code>go(start);</code>. <code>storybookEntry</code> (<code>node/build.ts</code>) removes that line and appends an export, so importing the bundle does not boot the app until the preview says so:</p>
+<pre><code>export function storybookStart(bridge) {
+  data.answer = (source, args) => bridge.answer(source, args);   <span class="cm">// the seam</span>
+  return Promise.resolve(go(() => bridge.launch(start))).then(() => ({
+    journal,
+    refresh(source) { <span class="cm">/* re-ask every resource whose source is this one */</span> },
+  }));
+}</code></pre>
+<p><code>bridge.launch</code> runs the app's start with the page at the address the story names (<code>parameters.exact.location</code>, <code>/</code> by default), because an app with routes reads the page's address as it starts; see <a href="#weak">Known limits</a>.</p>
+<p>The preview's side is <code>bridge()</code> in <code>preview/render.ts</code>:</p>
+<div class="scroll"><table>
+  <tr><th>The app asks</th><th>The bridge does</th></tr>
+  <tr><td><code>storyArgs()</code></td><td>returns the current args (defaults filled in), converted to the wire format</td></tr>
+  <tr><td><code>storyAction_changed(3)</code></td><td>calls <code>args.changed(3)</code>, replies <code>{ ok: true }</code></td></tr>
+  <tr><td><code>loadTodos()</code> (any other source)</td><td>calls <code>parameters.exact.sources.loadTodos()</code>; a promise is awaited; a missing mock is an error naming the source</td></tr>
+</table></div>
+<h3>Wire format</h3>
+<p>The runtime carries a record as an <b>array in field order</b>, a list as an array, <code>none</code> as <code>null</code>. The build's manifest lists each source's types (<code>sourceTypes</code>, read from the compiler's <code>names.js</code>): <code>"storyArgs": [[], { start: "n", step: "n" }]</code>. <code>preview/wire.ts</code> converts both ways and checks strings, numbers and booleans, because the runtime rejects a whole answer for one wrong leaf without saying which. That check is where messages like <code>args.item should be a record with the fields id, title</code> come from.</p>
+
+<h2 id="render">8. First render, step by step</h2>
+<div class="scroll">
+<svg viewBox="0 0 930 600" width="930" role="img" aria-label="Sequence of a story's first render">
+  <text class="h" x="40" y="20">Storybook core</text>
+  <text class="h" x="270" y="20">render.ts</text>
+  <text class="h" x="520" y="20">dev server (plugin + Builder)</text>
+  <text class="h" x="800" y="20">Exact app</text>
+  <line class="life" x1="85" y1="28" x2="85" y2="590"/>
+  <line class="life" x1="300" y1="28" x2="300" y2="590"/>
+  <line class="life" x1="610" y1="28" x2="610" y2="590"/>
+  <line class="life" x1="835" y1="28" x2="835" y2="590"/>
+
+  <path class="ar" d="M85 56 L 298 56"/>
+  <text x="95" y="50">renderToCanvas(story, canvas)</text>
+
+  <path class="ar2" d="M300 96 L 608 96"/>
+  <text x="310" y="90">GET exact-assets/Counter-1d92e34f/manifest.json?r=&lt;revision&gt;</text>
+
+  <rect class="box" x="618" y="108" width="300" height="92" rx="6"/>
+  <text class="m" x="626" y="126">Builder.build(id):</text>
+  <text class="m" x="626" y="142">kept build for this revision? → answer at once</text>
+  <text class="m" x="626" y="158">else: generated root → compile → runtime</text>
+  <text class="m" x="626" y="174">modules → bundle → publish</text>
+  <text class="m" x="626" y="190">(35–100 ms; ~1.2 s the very first time)</text>
+
+  <path class="ar2" d="M608 222 L 302 222"/>
+  <text x="310" y="216">{ version, bundle, css, sourceTypes }  — or { error }</text>
+
+  <rect class="box" x="96" y="238" width="196" height="76" rx="6"/>
+  <text class="m" x="104" y="256">check args against sourceTypes</text>
+  <text class="m" x="104" y="272">same story + same version live?</text>
+  <text class="m" x="104" y="288">→ refresh("storyArgs") and stop</text>
+  <text class="m" x="104" y="304">second story in the page? → error</text>
+
+  <path class="ar3" d="M300 338 L 608 338"/>
+  <text x="310" y="332">GET style.css  (wait for load, drop older sheets)</text>
+  <path class="ar" d="M300 368 L 87 368"/>
+  <text x="95" y="362">showMain()</text>
+  <path class="ar3" d="M300 398 L 608 398"/>
+  <text x="310" y="392">import("…/bundle.js?instance=N")</text>
+
+  <path class="ar" d="M300 438 L 833 438"/>
+  <text x="310" y="432">storybookStart(bridge)</text>
+  <path class="ar2" d="M835 468 L 302 468"/>
+  <text x="620" y="462">answer("storyArgs")</text>
+  <path class="ar2" d="M300 496 L 833 496"/>
+  <text x="620" y="490">{ v: [1, 2] }   (start, step)</text>
+  <text class="m" x="700" y="514">app paints into #exact-root</text>
+
+  <path class="ar" d="M300 536 L 87 536"/>
+  <text x="95" y="530">returns teardown (removes the root)</text>
+
+  <path class="ar2" d="M835 574 L 302 574"/>
+  <text x="430" y="568">later: answer("storyAction_changed", [3]) → args.changed(3)</text>
+</svg>
+</div>
+<ul>
+  <li>The manifest fetch is wrapped so the render gives up the moment Storybook tears the story down (<code>unlessAborted</code>, <code>preview/render.ts</code>). Without that, clicking through stories while a first build runs makes Storybook reload the whole preview.</li>
+  <li>A build error is answered as <code>{ error }</code> with HTTP 200 and shown as that story's error. The server never crashes on a component that does not compile.</li>
+  <li><code>?instance=N</code> makes the browser evaluate the module again. That is the entire "unmount" story: a new runtime each time, the old one left behind.</li>
+  <li>DevTools shows the steps as <code>performance.measure</code> entries: <code>exact:manifest</code>, <code>exact:stylesheet</code>, <code>exact:import</code>, <code>exact:boot</code>.</li>
+</ul>
+
+<h2 id="events">9. What happens when…</h2>
+<div class="scroll"><table>
+  <tr><th>Event</th><th>Server</th><th>Browser</th><th>Typical cost</th></tr>
+  <tr><td>You change a control</td><td>nothing</td><td><code>handle.refresh("storyArgs")</code>; component state survives</td><td>a frame</td></tr>
+  <tr><td>You switch to a built story</td><td>manifest from memory</td><td>new stylesheet, fresh instance, boot</td><td>50–65 ms</td></tr>
+  <tr><td>You open a component for the first time</td><td>infer signatures, compile, link runtime modules, bundle</td><td>as above</td><td>35–100 ms + the above</td></tr>
+  <tr><td>You edit the component's file</td><td>every <code>.contract</code> module reloads; builds of recently shown components start <i>before</i> the page asks</td><td>new <code>revision</code> → refetch manifest → new <code>version</code> → remount; edited controls kept</td><td>0.7–1.0 s end to end in e2e</td></tr>
+  <tr><td>You edit another file of the app</td><td>same rebuild</td><td>same <code>version</code> comes back → no remount</td><td>invisible</td></tr>
+  <tr><td>You restart Storybook</td><td><code>kept/&lt;id&gt;.json</code> matches → no build</td><td>normal mount</td><td>0 ms of build</td></tr>
+  <tr><td>The component does not compile</td><td>manifest is <code>{ error }</code></td><td>error shown in that story only</td><td>—</td></tr>
+  <tr><td><code>storybook build</code></td><td>every component of an imported file is built in <code>load()</code> and emitted with <code>assets/*</code></td><td>same code path, static files</td><td>a component that does not build fails the build only if a story imports it</td></tr>
+  <tr><td>A docs page</td><td>—</td><td>each story in its own iframe (<code>docs.story.inline: false</code>)</td><td>0.2–0.6 s per page</td></tr>
+</table></div>
+
+<h2 id="build">10. The build and its caches</h2>
+<p><code>Builder.build(id)</code> → <code>make()</code> (<code>node/build.ts</code>). A hit at a dashed step skips that step, and at 2 or 3 everything after it.</p>
+<div class="pipe">
+  <div><b>1. Sync the shadow</b>mirror <code>.contract</code>/<code>.tamber</code>, trimmed <code>app.json</code>, assets; gives the <code>revision</code><span class="t">every describe and build</span></div>
+  <div class="skip"><b>2. In memory</b>same <code>revision</code> already built in this process → return it<span class="t">0 ms</span></div>
+  <div class="skip"><b>3. Kept on disk</b><code>kept/&lt;id&gt;.json</code> has this <code>stamp</code> + <code>revision</code> → return it<span class="t">~1 ms, survives restarts</span></div>
+  <div class="skip"><b>4. Signatures</b>remembered wrapper compiles? else infer from errors<span class="t">2–3 × ~10 ms, once</span></div>
+  <div><b>5. Compile</b><code>exact-web-js js &lt;root&gt; -o app --app shadow</code><span class="t">5–25 ms</span></div>
+  <div class="skip"><b>6. Stage</b>runtime modules for this kind of app: found, or Exact's <code>build.mjs</code> once<span class="t">~1 s once per kind</span></div>
+  <div><b>7. Assemble</b>hard-link ~130 runtime modules + compiler output + <code>main.js</code><span class="t">a few ms</span></div>
+  <div><b>8. Bundle</b><code>storybook-entry.js</code> → <code>bun build</code> → one ES module<span class="t">15–30 ms</span></div>
+  <div><b>9. Publish</b><code>serve/&lt;id&gt;/&lt;version&gt;/</code>, keep newest 4; write <code>kept</code><span class="t"></span></div>
+</div>
+<h3>Why step 6 exists</h3>
+<p>Exact's own web build (<code>host/web-js/build.mjs</code>) runs the compiler and then places about 130 runtime modules and a boot module around its output. It took 1.3–1.9 s per component. Those modules depend on the app only through the flags the compiler writes and the sources the app asks, so the framework runs Exact's build <b>once per distinct key</b> (<code>stagingKey</code>, <code>node/stage.ts</code>), keeps the result, and afterwards runs only the compiler. The boot module differs by one value (a digest of the app's plan), which <code>bootModule</code> rewrites.</p>
+<p>Proof it is equivalent: <code>test/build-equivalence.test.ts</code> builds every example component both ways and requires identical bytes; it runs in CI. <code>STORYBOOK_EXACT_WHOLE_BUILDS=1</code> turns the reuse off.</p>
+<h3>Four identifiers</h3>
+<div class="scroll"><table>
+  <tr><th>Name</th><th>Digest of</th><th>Answers</th></tr>
+  <tr><td><code>id</code></td><td>component name + file path</td><td>which component (URL and cache key)</td></tr>
+  <tr><td><code>revision</code></td><td>every mirrored source of the app, the manifest, asset stats</td><td>could a build differ? (coarse: per app)</td></tr>
+  <tr><td><code>stamp</code></td><td>the framework's own files, the compiler binary, Exact's <code>build.mjs</code></td><td>was the cache made by this toolchain?</td></tr>
+  <tr><td><code>version</code></td><td>the bundle's and stylesheet's bytes</td><td>did the build actually change? (exact: decides remount)</td></tr>
+</table></div>
+<p><code>revision</code> is cheap and pessimistic; <code>version</code> is exact. An edit anywhere in the app triggers a rebuild of open components (cheap), and only those whose bytes changed remount.</p>
+<h3>Why a shadow copy</h3>
+<ul>
+  <li>The generated root must sit at the app's top level: a <code>use</code> may not leave the app directory.</li>
+  <li>Exact's build would otherwise compile the app's own <code>app.ts</code>, Rust and native modules. The shadow's <code>app.json</code> drops those keys.</li>
+  <li>Nothing generated lands in your source tree (except the optional <code>.d.contract.ts</code>).</li>
+  <li>A library is not mirrored: the shadow is an empty app with the package symlinked into <code>node_modules</code>, because Exact applies a package's tokens only when it is used by name.</li>
+  <li>The app's design file is named in the shadow's manifest, because Exact only finds <code>app.tamber</code> by itself beside a file called <code>app.contract</code>.</li>
+</ul>
+
+<h2 id="faq">11. Questions</h2>
+
+<h3>Why does the first run take minutes?</h3>
+<p>Exact has no published package, so the first <code>storybook dev</code> fetches it at one pinned commit and builds its compiler with Cargo. That happens once per machine (a minute or two with a warm Cargo cache) and lands in <code>~/.cache/storybook-framework-exact</code>, never in your project. <code>npx storybook-exact setup</code> does it ahead of time, in CI for example, and the <code>exactRoot</code> option uses a checkout you already have (<a href="https://github.com/dannyhw/storybook-framework-exact#getting-exact">README, "Getting Exact"</a>).</p>
+
+<h3>Does it write anything into my app?</h3>
+<p>No. Builds happen in a copy of your Contract sources and assets under <code>node_modules/.cache</code>. The one exception is optional: the <code>.d.contract.ts</code> declarations that type your story's args, written beside each imported file.</p>
+
+<h3>Is the component in my story the one my app ships?</h3>
+<p>Yes. The generated root around it is ordinary Contract, and Exact's own compiler and runtime build it. The framework changes two things only: when the app starts, and who answers its data. The framework reuses the runtime modules between builds to be fast, and a test in CI holds that to the same bytes as Exact's whole build. What a story leaves out is the rest of your app: its <code>app.ts</code>, Rust and native modules are not built, so a component that owns data gets it from the story's mocks.</p>
+
+<h3>Why is there a short wait the first time I open a component?</h3>
+<p>A component is built when you open one of its stories, not when Storybook starts: about 35–100 ms, and about a second for the first component of an app. Builds are kept on disk, so after a restart only what changed is built again. Switching between built stories takes about 50 ms.</p>
+
+<h3>Does changing a control rebuild the component, or lose its state?</h3>
+<p>Neither. The args are a resource of the running app, and a control change asks the app to read it again. A counter you clicked up stays where it is while you change its <code>step</code>.</p>
+
+<h3>One of my components does not compile. Does that break Storybook?</h3>
+<p>In <code>storybook dev</code>, no: the error shows in that component's stories and the rest run. <code>storybook build</code> fails if a story imports that component, and leaves it out (and says so) if none does.</p>
+
+<h3>Why is each story on a docs page in an iframe?</h3>
+<p>Exact's web runtime mounts one app per document, into a fixed element, and cannot unmount. So a page with several stories needs several documents. Give a tall component room with <code>parameters.docs.story.height</code>.</p>
+
+<h3>Why can't a decorator wrap my component in markup?</h3>
+<p>A story is an Exact app that paints itself, not DOM that the story returns, so there is nothing for a decorator to wrap. A decorator can still change args and parameters, or the document around the app (that is how the <a href="https://github.com/dannyhw/storybook-framework-exact#colour-scheme">colour scheme toolbar</a> works). To wrap a component, or to give a slot real children, write a small Contract component that does it and write the story for that.</p>
+
+<h3>How do I show a component that loads data, or a whole app with routes?</h3>
+<p>Such a component is built as it is, and its story answers its sources: <code>parameters.exact.sources</code> maps each source name to a function (see <a href="#wrapper">Components that own data</a>). An app with routes starts at <code>/</code>, or at <code>parameters.exact.location</code>. The <a href="https://github.com/dannyhw/storybook-framework-exact/tree/main/examples/mealdrop">Mealdrop example</a> runs a whole ordering flow this way, play functions included.</p>
+
+<h3>Will it work with the newest Exact?</h3>
+<p>It works with the commit it pins. Exact changes daily and the framework relies on a few of its internals, each behind a check, so a newer Exact that moved one fails with "This Exact revision is newer than storybook-framework-exact supports" instead of misbehaving. Moving the pin is a new release of the framework.</p>
+
+<h3>Does it show my components on iOS and Android?</h3>
+<p>No. Stories show Exact's web target only.</p>
+
+<h3>Is this an official Storybook or Expo package?</h3>
+<p>Neither. It is a community framework in its own repository, so it can follow Exact's pace while Exact is pre-1.0.</p>
+
+<h3>Exact has a gallery. Why Storybook?</h3>
+<p>They do different jobs; see <a href="#alts">How it compares</a>.</p>
+
+<h2 id="weak">12. Known limits</h2>
+<p>The README's <a href="https://github.com/dannyhw/storybook-framework-exact#limitations">Limitations</a> is the list to check before you adopt it. These are the ones that come from how it works:</p>
+<ul>
+  <li><b>One story per document.</b> Docs pages use iframes, and each story you open starts a fresh copy of the runtime. Earlier copies are not disposed until the preview reloads, so a very long session holds on to their memory and timers. How much has not been measured.</li>
+  <li><b>Decorators cannot wrap markup</b>, and a component with a slot is shown with a line of placeholder text in it.</li>
+  <li><b>What an action prop is called with is worked out from compiler errors.</b> Exact does not report it, so the framework compiles the generated root, reads the refusals and corrects it. A reworded compiler message would break this; the pinned commit and a test against the real compiler guard it. If it fails for a component, its stories show "Could not work out what … action props are given".</li>
+  <li><b>Props are read from the source text</b>, not by the compiler, so that imports are instant. It expects source laid out as Exact's formatter leaves it; props brought in through <code>members</code> may be missed (not tested).</li>
+  <li><b>An edit rebuilds every component of the app you have open.</b> Fine at 35 ms each; it has not been tried with hundreds open.</li>
+  <li><b>Dark mode follows the browser</b> unless a decorator sets the document's <code>color-scheme</code>, which every token follows (<a href="https://github.com/dannyhw/storybook-framework-exact#colour-scheme">README, "Colour scheme"</a>).</li>
+  <li><b>An app with routes shares the tab's history.</b> Its visits are real history entries, written without their addresses: the canvas keeps Storybook's address, a reload shows the story, and the browser's Back and Forward step through the app (<code>preview/address.ts</code>). The runtime of a story you opened earlier still listens to those steps; what it does with them has not been examined.</li>
+  <li><b>It relies on Exact internals</b>: how the generated <code>main.js</code> boots, what <code>rt.js</code> and <code>names.js</code> export, which files the compiler writes. Each has a check that fails loudly, and each may need a fix when the pin moves.</li>
+  <li><b>Web only</b>, on macOS and Linux. Windows has never been run.</li>
+</ul>
+
+<h2 id="changes">13. What would lift them</h2>
+<p>Most of the limits are Exact's, and two additions to Exact would remove most of the machinery on this page. Neither exists at the pinned commit, and nothing here is a promise.</p>
+<ul>
+  <li><b>A way to describe a component</b> (its props, what its actions are called with, its slot and injected values). The text reader and the reading of compiler errors would go.</li>
+  <li><b>An unmount, or a choice of root element, in the web runtime.</b> Docs stories could render inline, and nothing would be left behind between stories.</li>
+</ul>
+<p>In the framework itself: rebuild only the components an edit affects, share the runtime modules between apps (each library pays 0.3–0.6 s once today), and dispose of earlier runtimes.</p>
+
+<h2 id="alts">14. How it compares</h2>
+<h3>Exact's own gallery</h3>
+<p>Exact has <code>contract gallery</code>, part of its design tool: a generated second app, served by the dev loop at <code>/__dev/gallery/</code>, that places each exported <b>library</b> component the app uses once per variant value (the first value of every variant prop, then each other value alone, never combinations), with placeholders for every other prop and no-ops for actions. Nobody writes it, and it follows each kept token edit. It does not show an app's own components, chosen args or data. What it lacks is what Storybook is: args with controls, action logs, play functions and interaction tests, docs pages, addons (a11y, viewports, visual tests) and a static site to publish. Its dev loop rebuilds the whole app and reloads on an edit; a story's hot update rebuilds one component and keeps the controls.</p>
+<p>What the gallery has that this does not: nothing to write, nothing generated around your component, no pinned version, and it is part of the tool that edits your tokens. Use it to look over a library's variants; use stories for chosen states, data, interaction tests and docs.</p>
+<h3>Other Storybook renderers</h3>
+<div class="scroll"><table>
+  <tr><th></th><th>React / Vue on Vite</th><th><code>@storybook/server</code></th><th>React Native Storybook</th><th>This framework</th></tr>
+  <tr><td>A story renders</td><td>a component in the preview's own module graph</td><td>HTML fetched per story</td><td>a component on the device</td><td>a separately built app, imported as a module</td></tr>
+  <tr><td>Args arrive by</td><td>re-render with props</td><td>a new fetch</td><td>re-render</td><td>re-asking a resource in the running app</td></tr>
+  <tr><td>Build unit</td><td>the preview bundle</td><td>none</td><td>the app bundle</td><td>one bundle per component, on demand</td></tr>
+  <tr><td>Decorators wrap markup</td><td>yes</td><td>no</td><td>yes</td><td>no</td></tr>
+</table></div>
+<p>The closest relative is the server renderer: both treat the story as something built elsewhere and fetched. The difference is that here the fetched thing is a live app the preview can keep talking to.</p>
+
+<h2 id="poke">15. See it for yourself</h2>
+<p>In your own project, with <code>storybook dev</code> running:</p>
+<ul>
+  <li><b>The generated root of a story:</b> <code>node_modules/.cache/storybook-framework-exact/&lt;app&gt;-*/shadow/__story_*.contract</code></li>
+  <li><b>What is remembered between runs:</b> <code>…/kept/&lt;id&gt;.json</code> (stamp, revision, manifest, signatures)</li>
+  <li><b>The protocol:</b> Network tab, filter <code>exact-assets</code>: one <code>manifest.json?r=…</code>, one <code>style.css</code>, one <code>bundle.js?instance=N</code> per mount.</li>
+  <li><b>The time each step takes:</b> Performance tab, Timings track, <code>exact:*</code>. On the server, the log line <code>exact: Built Counter (counter.contract) in 35 ms</code>.</li>
+  <li><b>The errors:</b> put a typo in a component (an error in its stories only); remove a mock from the story of a component that owns data (the error names the source); give an arg the wrong type (the error names the field).</li>
+  <li><b>Where Exact and the cache are:</b> <code>npx storybook-exact where</code></li>
+</ul>
+<h3>Reading the code</h3>
+<p>The source is about 2,200 lines. To run the examples and tests from a clone, see <a href="https://github.com/dannyhw/storybook-framework-exact#developing-this-repository">Developing this repository</a>. A reading order:</p>
+<ol>
+  <li><code>src/preset.ts</code> and <code>src/preview/entry-preview.ts</code>, about 20 lines each: the whole Storybook-facing surface.</li>
+  <li><code>src/node/vite-plugin.ts</code>: import, the dev middleware and the static build.</li>
+  <li><code>src/node/contract.ts</code>: <code>wrapperSource</code> first, then <code>refineSignatures</code>.</li>
+  <li><code>src/preview/render.ts</code>: <code>renderToCanvas</code> top to bottom, then <code>bridge</code>; <code>src/preview/address.ts</code> for apps with routes.</li>
+  <li><code>src/node/build.ts</code>: <code>build</code>, <code>make</code>, <code>storybookEntry</code>.</li>
+  <li><code>src/node/shadow.ts</code>, then <code>src/node/stage.ts</code>, then <code>src/node/toolchain.ts</code>.</li>
+</ol>
+<footer class="meta"><a href="https://github.com/dannyhw/storybook-framework-exact">dannyhw/storybook-framework-exact</a> · MIT · not affiliated with Expo or Storybook.</footer>
+</main>
+</body>
+</html>

@@ -227,6 +227,8 @@ npx storybook-exact types app
 
 ## How it works
 
+In short, below. The long version, with diagrams and answers to the usual questions, is at [dannyhw.github.io/storybook-framework-exact](https://dannyhw.github.io/storybook-framework-exact/).
+
 Exact compiles a whole app, and its web runtime mounts one app per page. So a story is a small app:
 
 1. Importing a `.contract` file gives a description of each component, read from its source.
