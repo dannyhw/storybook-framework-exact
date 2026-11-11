@@ -2,7 +2,7 @@
 
 A port of [Mealdrop](https://github.com/storybookjs/mealdrop), Storybook's example food-delivery app, to Exact's Contract language: its design system, its pages, and the whole app with its routes, each with the stories and play functions the original has.
 
-![The app's checkout flow as a story, its play function passed](../../docs/mealdrop.png)
+[![The design system in light and dark, a page with its actions, and the whole app ordering a meal, by hand and by a play function](../../docs/mealdrop.gif)](../../docs/mealdrop.mp4)
 
 ```sh
 npm run example:mealdrop     # from the repository root: Storybook on port 6117

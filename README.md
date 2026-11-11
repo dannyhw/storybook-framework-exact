@@ -22,7 +22,7 @@ export const Secondary: StoryObj<typeof Button> = { args: { tone: 'secondary' } 
 
 For something larger, [`examples/mealdrop`](examples/mealdrop) is Storybook's Mealdrop demo ported to Contract: a design system, pages, and the whole app with its routes.
 
-[![The Mealdrop example: the app's checkout flow as a story](docs/mealdrop.png)](examples/mealdrop)
+[![The Mealdrop example: the design system in light and dark, a page with its actions, and the whole app ordering a meal, by hand and by a play function](docs/mealdrop.gif)](docs/mealdrop.mp4)
 
 > [!WARNING]
 > Experimental. Exact is pre-1.0, changes daily and has no published package, so this framework builds one pinned commit of it from source and relies on some of its internals. It is not affiliated with Expo.
@@ -274,11 +274,12 @@ There are two examples, each an npm workspace that uses the framework from the r
 
 `npm run sweep -- --url <a running Storybook>` (or `--dir <a static build>`) opens every story on its own and says whether it rendered and its play function passed; CI runs it over the Mealdrop example's static build.
 
-The walkthrough at the top of this page is recorded from the running example, so it shows what the code does today. To record it again, with `npm run example` running:
+The walkthroughs at the top of this page are recorded from the running examples, so they show what the code does today. To record them again, with `npm run example` and `npm run example:mealdrop` running:
 
 ```sh
 npx playwright-core install ffmpeg   # once
 node scripts/record-demo.mjs         # writes docs/demo.mp4 and docs/demo.gif
+node scripts/record-mealdrop.mjs     # writes docs/mealdrop.mp4 and docs/mealdrop.gif
 ```
 
 ## License
