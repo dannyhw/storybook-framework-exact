@@ -85,7 +85,14 @@ function walk(dir: string, visit: (file: string) => void, top = true): void {
   }
 }
 
-function shadowManifest(appDir: string): string {
+/**
+ * The shadow's `app.json`, as a file in the directory `from` of the shadow reads it.
+ *
+ * Exact looks for an app's design from the file it compiles: the `"tamber"` its directory's `app.json`
+ * names, else an `app.tamber` beside it when it is `app.contract`. A story's entry is never `app.contract`,
+ * so the manifest names the design: the one the app's own names, else its `app.tamber`.
+ */
+function shadowManifest(appDir: string, from = '.'): string {
   let manifest: Record<string, unknown> = {};
   try {
     manifest = JSON.parse(readFileSync(join(appDir, 'app.json'), 'utf8'));
@@ -96,7 +103,18 @@ function shadowManifest(appDir: string): string {
   const name = typeof manifest.name === 'string' ? manifest.name : basename(appDir);
   const id = typeof manifest.id === 'string' ? manifest.id : `dev.storybook.${name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'stories'}`;
   const app = typeof manifest.app === 'object' && manifest.app ? (manifest.app as Record<string, unknown>) : {};
-  return `${JSON.stringify({ ...manifest, name, id, start_url: '/', app: { ...app, id: app.id ?? id, name: app.name ?? name } }, null, 2)}\n`;
+  const design = typeof manifest.tamber === 'string' ? manifest.tamber : existsSync(join(appDir, 'app.tamber')) ? 'app.tamber' : null;
+  const tamber = design === null ? {} : { tamber: relative(resolve(appDir, from), resolve(appDir, design)).split(sep).join('/') };
+  return `${JSON.stringify({ ...manifest, ...tamber, name, id, start_url: '/', app: { ...app, id: app.id ?? id, name: app.name ?? name } }, null, 2)}\n`;
+}
+
+/**
+ * Give a root component's file, which is compiled as it is, the app's manifest beside it in the shadow:
+ * in a directory of its own it would be compiled without the app's design.
+ */
+export function manifestBeside(appDir: string, shadow: string, mirrored: string): void {
+  const from = relative(shadow, dirname(mirrored));
+  if (from !== '') writeIfChanged(join(shadow, from, 'app.json'), shadowManifest(appDir, from));
 }
 
 function writeIfChanged(path: string, text: string | Buffer): void {

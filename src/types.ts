@@ -66,11 +66,15 @@ export interface ExactStoryResult {
   component: ExactComponent;
   args: Record<string, unknown>;
   sources: SourceMocks;
+  /** Where an app with routes starts; the story's `parameters.exact.location` when a `render` of its own gives none. */
+  location?: string;
 }
 
 export interface ExactParameters {
   exact?: {
     /** Answers for the sources a root component declares (`resource x = source()`, `send x = source()`). */
     sources?: SourceMocks;
+    /** The path an app with routes starts at, as its routes write it: `"/item/42"`. `"/"` when not given. */
+    location?: string;
   };
 }

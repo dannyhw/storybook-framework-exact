@@ -13,10 +13,10 @@ go(start);
 describe('storybookEntry', () => {
   it('takes the boot out of main.js and hands it to storybookStart', () => {
     const entry = storybookEntry(MAIN);
-    expect(entry.match(/go\(start\)/g)).toHaveLength(1);
+    expect(entry).not.toContain('go(start);');
     expect(entry).toContain("if (agentMode()) { After.push(() => {}); }\n\n");
     expect(entry).toContain('export function storybookStart(bridge) {');
-    expect(entry).toContain('  return Promise.resolve(go(start)).then(() => ({');
+    expect(entry).toContain('  return Promise.resolve(go(() => bridge.launch(start))).then(() => ({');
     expect(entry).toContain("from './rt.js';");
   });
 
@@ -29,7 +29,7 @@ describe('storybookEntry', () => {
   it('takes only the last boot, leaving one that is in a string or a comment', () => {
     const entry = storybookEntry(`// see go(start);\n${MAIN}`);
     expect(entry.startsWith('// see go(start);\n')).toBe(true);
-    expect(entry.match(/go\(start\)/g)).toHaveLength(2);
+    expect(entry.match(/go\(start\);/g)).toHaveLength(1);
   });
 
   it('runs: the app boots when the preview starts it, not when it is imported', async () => {
@@ -51,8 +51,11 @@ describe('storybookEntry', () => {
       body
     )(booted, rt.data, (f: () => void) => f(), (r: unknown) => refreshed.push(r), rt.resources, rt.journal);
     expect(booted).toEqual([]);
-    const handle = await start({ answer: (source: string) => `answer to ${source}` });
-    expect(booted).toEqual(['start']);
+    const handle = await start({
+      answer: (source: string) => `answer to ${source}`,
+      launch: (boot: () => unknown) => (booted.push('launch'), boot()),
+    });
+    expect(booted).toEqual(['launch', 'start']);
     expect(rt.data.answer!('storyArgs', [])).toBe('answer to storyArgs');
     expect(handle.journal).toBe(rt.journal);
     handle.refresh('storyArgs');

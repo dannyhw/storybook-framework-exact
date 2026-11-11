@@ -7,6 +7,7 @@ import type { ArgsStoryFn, RenderToCanvas } from 'storybook/internal/types';
 
 import type { ExactComponent, ExactStoryResult, Manifest, ManifestError } from '../types.ts';
 import type { ExactRenderer } from '../public-types.ts';
+import { launchAt, refusedLocation } from './address.ts';
 import { isExactComponent } from './arg-types.ts';
 import { fromWire, toWire } from './wire.ts';
 
@@ -24,6 +25,8 @@ interface Mount {
   root: HTMLElement;
   story: ExactStoryResult;
   manifest: Manifest;
+  /** Where the app starts, if it has routes. */
+  location: string;
   handle: Handle | null;
 }
 
@@ -107,7 +110,9 @@ function fillCanvas(canvas: Element): void {
   if (!document.querySelector('style[data-exact-canvas]')) {
     const style = document.createElement('style');
     style.dataset.exactCanvas = '';
-    style.textContent = `body:not(.sb-main-centered) .${CANVAS}{display:grid;min-height:100%}`;
+    // The root is a grid item, which is by default as wide as its content at least: a row that scrolls
+    // sideways would widen the whole app instead.
+    style.textContent = `body:not(.sb-main-centered) .${CANVAS}{display:grid;min-height:100%}body:not(.sb-main-centered) .${CANVAS}>#exact-root{min-width:0}`;
     document.head.append(style);
   }
   canvas.classList.add(CANVAS);
@@ -127,6 +132,8 @@ function bridge(mount: Mount) {
   const { component } = mount.story;
   const types = mount.manifest.sourceTypes;
   return {
+    /** Start the app with the page at the story's location, which an app with routes launches at. */
+    launch: <T>(start: () => T) => launchAt(mount.location, start),
     answer(source: string, sent: unknown[] = []) {
       const [parameters, result] = types[source] ?? [[], undefined];
       if (source === ARGS_SOURCE) return { v: argsAnswer(mount.story, mount.manifest) };
@@ -178,6 +185,13 @@ export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, s
     }
   }
 
+  const location = story.location ?? storyContext.parameters.exact?.location ?? '/';
+  const refused = refusedLocation(location);
+  if (refused) {
+    showError({ title: `${story.component.name} cannot start there`, description: refused });
+    return;
+  }
+
   // The same story on the same build: the running app asks for its args again. Its own state stays.
   if (live && live.canvas === canvasElement && live.key === key && !forceRemount && live.root.isConnected && live.handle) {
     live.story = story;
@@ -196,7 +210,7 @@ export const renderToCanvas: RenderToCanvas<ExactRenderer> = async ({ storyFn, s
 
   const root = document.createElement('div');
   root.id = 'exact-root';
-  const mount: Mount = { key, canvas: canvasElement, root, story, manifest, handle: null };
+  const mount: Mount = { key, canvas: canvasElement, root, story, manifest, location, handle: null };
   live = mount;
   const superseded = () => live !== mount;
 

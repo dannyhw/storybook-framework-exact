@@ -288,6 +288,30 @@ async function run(index) {
     assert(/1 left/.test(await rootText()), `after the answer the app reads ${await rootText()}`);
   });
 
+  await check('an app with routes starts at "/", or where its story says', async () => {
+    await open('screens--home');
+    assert(/^Fruits apple pear plum$/.test(await rootText()), `at "/" the app reads ${await rootText()}`);
+    await open('screens--no-such-page');
+    assert(/Nothing here/.test(await rootText()), `at a location that is no route the app reads ${await rootText()}`);
+  });
+
+  await check("an app's navigation leaves the canvas its address, and the browser's Back goes back in the app", async () => {
+    await open('screens--home');
+    const address = preview().url();
+    assert(new URL(address).pathname.endsWith('/iframe.html'), `the canvas is at ${address}`);
+    await frame().getByRole('button', { name: 'plum' }).click();
+    await frame().getByRole('heading', { name: 'plum' }).waitFor({ timeout: 10_000 });
+    assert(preview().url() === address, `after a navigation the canvas is at ${preview().url()}`);
+    // The browser's own Back: a step of the tab's history, which the canvas's visits are part of.
+    await page.evaluate(() => window.history.back());
+    await frame().getByRole('heading', { name: 'plum' }).waitFor({ state: 'detached', timeout: 10_000 });
+    assert(/^Fruits apple pear plum$/.test(await rootText()), `after Back the app reads ${await rootText()}`);
+    await frame().getByRole('button', { name: 'pear' }).click();
+    await frame().getByRole('heading', { name: 'pear' }).waitFor({ timeout: 10_000 });
+    await preview().evaluate(() => window.location.reload());
+    await frame().getByRole('heading', { name: 'Fruits' }).waitFor({ timeout: RENDER_MS });
+  });
+
   assert(docs.length > 0, 'the example has no autodocs page');
   for (const doc of docs) {
     await check(`autodocs ${doc.id} renders each story in its own iframe`, async () => {

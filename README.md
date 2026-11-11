@@ -141,7 +141,15 @@ export const Seeded: StoryObj<typeof Todos> = {
 
 A source gets the arguments the component passed and returns plain values (objects for shapes, arrays for lists, `null` for `none`), or a promise of them. Its answer is checked against the shape the component declared, and an answer that does not fit is refused with the field's name (`loadProfile.name should be a string, and is 42`). A root component must be the first component in its file.
 
-A file with `routes` is a root too, and its first component is shown as the app. The canvas's own address is not one of the app's routes, so it starts on its `notfound` route; navigating from there works.
+A file with `routes` is a root too, and its first component is shown as the app. It starts at `/`, or at the location its story gives:
+
+```ts
+export const Checkout = { parameters: { exact: { location: '/checkout' } } };
+```
+
+The app navigates as it does on a page of its own, and the browser's Back and Forward step through its visits. The canvas keeps Storybook's address throughout, so a reload shows the story again, from its start.
+
+Exact's navigation stack keeps every visit of the stack in the document, the ones beneath hidden and inert. A play function's `getByText` finds those too, so for an app that shows one page at a time, draw only the top visit (`for e in [top(nav)] key=e.id`).
 
 A root that fills its window (`height="100%"`) fills the canvas.
 
@@ -166,6 +174,44 @@ export const Off = {};
 ### Images and fonts
 
 Files in the app's `assets/` folder are served to the canvas and included in a static build, so `image "assets/photo.png"` and `font "Brand" = "assets/brand.ttf"` work as they do in the app. When two apps in one Storybook have an asset of the same name, the first one loaded wins.
+
+### Design tokens
+
+The app's design applies to every story: the `.tamber` file its `app.json` names with `"tamber"`, or else the `app.tamber` beside it. So `color="text.primary"` or `gap="space.md"` means in a story what it means in the app. A library's components get the tokens of the library's own `.tamber`.
+
+### Colour scheme
+
+Exact's tokens follow the document's `color-scheme`, which is what its own `setScheme` sets. To choose the scheme from Storybook's toolbar, set it from a decorator:
+
+```ts
+// .storybook/preview.ts
+import type { Decorator, Preview } from 'storybook-framework-exact';
+
+const withScheme: Decorator = (story, { globals }) => {
+  const { scheme } = globals;
+  document.documentElement.style.colorScheme = scheme === 'light' || scheme === 'dark' ? scheme : '';
+  return story();
+};
+
+const preview: Preview = {
+  globalTypes: {
+    scheme: {
+      toolbar: {
+        title: 'Scheme',
+        items: [
+          { value: 'system', title: 'System', icon: 'browser' },
+          { value: 'light', title: 'Light', icon: 'sun' },
+          { value: 'dark', title: 'Dark', icon: 'moon' },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
+  initialGlobals: { scheme: 'system' },
+  decorators: [withScheme],
+};
+export default preview;
+```
 
 ### Types
 
@@ -201,8 +247,8 @@ Builds happen in a copy of your app's Contract sources and assets kept under `no
 - **Decorators cannot wrap markup.** A story renders an Exact app, not DOM you return. A decorator can change args and parameters; to wrap a component, wrap it in Contract.
 - **A component that needs a parent or children.** A row made for a `list`, or a card whose slot is its content, is shown on its own, with a line of placeholder text in its slot. Write a small Contract component that places it as you want it seen, and write the story for that.
 - **`option<T>` in Controls.** A control cannot set an optional value back to `none`; reset the controls, or give the story `null`.
-- **Dark mode.** Exact follows the browser's colour scheme. Storybook's background tool changes the canvas's background, not the scheme.
-- **One component that does not compile fails a static build.** `storybook dev` shows the error in that component's stories and runs the rest.
+- **Dark mode.** Exact follows the browser's colour scheme. Storybook's background tool changes the canvas's background, not the scheme; a toolbar item of your own can set the scheme (see [Colour scheme](#colour-scheme)).
+- **A component that does not compile fails a static build**, if a story imports it. `storybook dev` shows the error in that component's stories and runs the rest. A component no story imports is left out of a static build when it cannot be built on its own (a row made for a list, a second component in a file with `routes`), and the build says so.
 - **Native modules, the app's TypeScript and Rust data modules, and routes into other apps** are not part of a story.
 - **Web only.** Stories show Exact's web target, not its native hosts.
 - **Exact's version is pinned.** Moving to a newer Exact means a new release of this framework.
@@ -218,6 +264,8 @@ npm run e2e              # browser tests against the example
 ```
 
 `examples/basic` is an npm workspace that uses the framework from the repository root: an app (`app/`) and a small library (`lib/chips`).
+
+`npm run sweep -- --url <a running Storybook>` (or `--dir <a static build>`) opens every story on its own and says whether it rendered and its play function passed.
 
 The walkthrough at the top of this page is recorded from the running example, so it shows what the code does today. To record it again, with `npm run example` running:
 

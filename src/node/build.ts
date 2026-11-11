@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import type { ComponentInfo, ExactComponent, Manifest, WireType } from '../types.ts';
 import { type Diagnostic, type Signatures, defaultFor, isAction, needsBox, parseComponents, refineSignatures, wrapperSource } from './contract.ts';
 import { withLock } from './lock.ts';
-import { WRAPPER_PREFIX, appDirectory, libraryOf, projectCache, syncShadow, unshadow } from './shadow.ts';
+import { WRAPPER_PREFIX, appDirectory, libraryOf, manifestBeside, projectCache, syncShadow, unshadow } from './shadow.ts';
 import { assemble, findStage, keepStage, stagingKey } from './stage.ts';
 import type { Log, Toolchain } from './toolchain.ts';
 
@@ -114,7 +114,8 @@ function failure(error: unknown): string {
 /**
  * The entry the preview imports: Exact's generated `main.js`, which boots as it is imported, with the boot
  * handed to the preview instead. Keeping the rest of `main.js` keeps what Exact wires up there for a plan
- * (its fonts' wait, time and locale, dialogs, the development tools).
+ * (its fonts' wait, time and locale, dialogs, the development tools). The preview runs the start itself
+ * (`bridge.launch`), since an app with routes reads the page's address as it starts.
  */
 export function storybookEntry(main: string): string {
   const boot = main.lastIndexOf('go(start);');
@@ -127,7 +128,7 @@ export function storybookEntry(main: string): string {
     "import { data as __sbData, commit as __sbCommit, R as __sbRefresh, Resources as __sbResources, journal as __sbJournal } from './rt.js';",
     'export function storybookStart(bridge) {',
     '  __sbData.answer = (source, args) => bridge.answer(source, args);',
-    '  return Promise.resolve(go(start)).then(() => ({',
+    '  return Promise.resolve(go(() => bridge.launch(start))).then(() => ({',
     '    journal: __sbJournal,',
     "    refresh(source) { return __sbCommit(() => { for (const r of __sbResources) if (r.source === source) __sbRefresh(r); }, 'storybook args'); },",
     '  }));',
@@ -313,6 +314,7 @@ export class Builder {
     if (component.root) {
       if (!known.first) throw new Error(`${component.name} owns data or routes (a resource, mutation, task or \`routes\`), which only a file's first component may: it cannot be built as a story.`);
       if (library) throw new Error(`${component.name} owns data or routes, which only an app's root may, and ${library.name} is a library: it cannot be built as a story.`);
+      manifestBeside(appDir, shadow, mirrored);
       await compile().catch((error) => {
         throw explain(error);
       });

@@ -4,7 +4,7 @@ import { dirname, join, sep } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { WRAPPER_PREFIX, appDirectory, libraryOf, syncShadow, unshadow } from '../src/node/shadow.ts';
+import { WRAPPER_PREFIX, appDirectory, libraryOf, manifestBeside, syncShadow, unshadow } from '../src/node/shadow.ts';
 
 const BUTTON = `component Button
   props
@@ -127,6 +127,40 @@ describe('syncShadow', () => {
     });
     // The app's own manifest is not touched.
     expect(JSON.parse(read('app/app.json')).rust).toEqual({ crate: 'src' });
+  });
+
+  it('names the app’s design, which Exact finds by itself only beside an app.contract', () => {
+    put('app/button.contract', BUTTON);
+    put('app/app.json', JSON.stringify({ name: 'Basic' }));
+    syncShadow(app(), shadow());
+    expect(JSON.parse(read('cache/shadow/app.json')).tamber).toBeUndefined();
+
+    put('app/app.tamber', 'tamber basic\n');
+    syncShadow(app(), shadow());
+    expect(JSON.parse(read('cache/shadow/app.json')).tamber).toBe('app.tamber');
+
+    // The one the app's manifest names wins.
+    put('app/design/brand.tamber', 'tamber brand\n');
+    put('app/app.json', JSON.stringify({ name: 'Basic', tamber: 'design/brand.tamber' }));
+    syncShadow(app(), shadow());
+    expect(JSON.parse(read('cache/shadow/app.json')).tamber).toBe('design/brand.tamber');
+  });
+
+  it('puts the manifest beside a root in a directory of its own, naming the design from there', () => {
+    put('app/pages/home/home.contract', BUTTON);
+    put('app/top.contract', BUTTON);
+    put('app/app.json', JSON.stringify({ name: 'Basic' }));
+    put('app/app.tamber', 'tamber basic\n');
+    syncShadow(app(), shadow());
+    manifestBeside(app(), shadow(), join(shadow(), 'pages/home/home.contract'));
+    expect(JSON.parse(read('cache/shadow/pages/home/app.json'))).toMatchObject({ name: 'Basic', tamber: '../../app.tamber' });
+    // A root at the top has the shadow's own manifest.
+    manifestBeside(app(), shadow(), join(shadow(), 'top.contract'));
+    expect(JSON.parse(read('cache/shadow/app.json')).tamber).toBe('app.tamber');
+    // It stays through the next sync, and does not change the revision.
+    const { revision } = syncShadow(app(), shadow());
+    expect(existsSync(join(shadow(), 'pages/home/app.json'))).toBe(true);
+    expect(syncShadow(app(), shadow()).revision).toBe(revision);
   });
 
   it('gives a library an app.json named after its directory', () => {
