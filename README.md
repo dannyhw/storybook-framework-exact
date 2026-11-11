@@ -229,7 +229,11 @@ export default preview;
 TypeScript reads the Contract file itself, through the framework, which is a [content mapper](https://devblogs.microsoft.com/typescript/announcing-typescript-7-1-beta/) for `.contract` files. That needs TypeScript 7.1 (in beta) and the `contentMappers` entry in `tsconfig.json` shown under [Install](#install). Nothing is written beside your sources, and nothing can be stale.
 
 - **On the command line**, a content mapper is code TypeScript runs, so TypeScript asks to be told it may: `tsc --runExternalCode`. Without the flag `tsc` stops with `TS18068`.
-- **In an editor** that uses TypeScript 7.1, the workspace must be trusted and content mappers allowed (in VS Code, the `js/ts.contentMappers.enabled` setting turns them off). "Go to Definition" on a story's arg, or on the imported component, then opens the prop or the component in the Contract file, and a `use` of a file that is not there is underlined in the Contract file.
+- **In VS Code**, the built-in TypeScript support cannot run TypeScript 7. Install the [TypeScript 7 extension](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview), turn it on and point it at the project's TypeScript with the settings below, then choose the workspace's version once with **TypeScript: Select TypeScript Version…** (until you do, the extension runs the build it ships with). The workspace must be trusted; content mappers are allowed by default (`js/ts.contentMappers.enabled`). "Go to Definition" on a story's arg, or on the imported component, then opens the prop or the component in the Contract file, and a `use` of a file that is not there is underlined in the Contract file.
+
+  ```json
+  { "js/ts.experimental.useTsgo": true, "js/ts.tsdk.path": "node_modules/typescript" }
+  ```
 
 This part is an experiment on a beta: the mapper speaks version 1 of a protocol TypeScript has not yet documented, and has been run with `tsc` and TypeScript's language server, not yet in VS Code itself.
 

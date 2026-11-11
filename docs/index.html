@@ -160,6 +160,7 @@ export const AtCheckoutWithACart = {
   <li><b>A whole flow as a test.</b> <code>ToSuccessPage</code> walks from the home page through a category and a restaurant, adds a dish to the cart, fills in the checkout form and checks the confirmed order (the video above runs it with the Interactions panel open). Each step is a story that plays the one before it, and <code>DemoMode</code> runs the whole flow at a pace to watch.</li>
   <li><b>Light and dark.</b> The design's tokens are in <code>app/app.tamber</code>, each with a light and a dark value, and a toolbar item sets the scheme (<code>.storybook/preview.ts</code>).</li>
   <li><b>The stories and the app share one implementation.</b> The folder is an Exact app as well: its <code>app.ts</code> answers the same sources from the same store, and Exact's own web build runs it. Nothing in the components knows about Storybook.</li>
+  <li><b>Args checked against the Contract source.</b> A page's <code>restaurants</code> arg is checked against the <code>Restaurant</code> shape of <code>app/data/shapes.contract</code>, by TypeScript reading the Contract files themselves (<a href="#faq">how</a>). There are no generated type files in the example.</li>
   <li><b>Every story is checked in CI.</b> The Storybook is built statically, and <code>npm run sweep</code> opens all 116 stories and runs each play function.</li>
 </ul>
 <pre><code>git clone https://github.com/dannyhw/storybook-framework-exact &amp;&amp; cd storybook-framework-exact
@@ -287,6 +288,7 @@ npm run example:mealdrop      <span class="cm"># Storybook on :6117; the first r
 </svg>
 </div>
 <p>Three places code runs: <b>Node</b> (inside Storybook's own process), <b>child processes</b> (Exact's Rust compilers and Bun), and the <b>preview iframe</b>. The only channel from browser to server that the framework adds is one HTTP path: <code>exact-assets/&lt;id&gt;/…</code>.</p>
+<p>Types are a fourth, outside Storybook: TypeScript starts the framework as a small process of its own (<code>node/content-mapper.ts</code>) and asks it how each <code>.contract</code> file reads as TypeScript. It shares the text reader with the import, and never runs the compiler.</p>
 
 <h2 id="import">6. What a <code>.contract</code> import gives you</h2>
 <p><code>vite-plugin.ts</code> <code>load()</code> answers the import with JSON. For <code>examples/basic/app/counter.contract</code>:</p>
@@ -509,7 +511,16 @@ component Story
 <p>No. Builds happen in a copy of your Contract sources and assets under <code>node_modules/.cache</code>, and TypeScript reads your Contract files directly (next question).</p>
 
 <h3>How are a story's args typed?</h3>
-<p>From the component's props, read from the Contract file each time TypeScript looks. TypeScript 7.1 (in beta) lets a package say how a file that is not TypeScript reads as TypeScript, and the framework does that for <code>.contract</code> files: you name it under <code>contentMappers</code> in <code>tsconfig.json</code> and run <code>tsc --runExternalCode</code>. A wrong or misspelt arg is an error in the story, a shape taken from another Contract file is checked too, and Go to Definition on an arg opens the prop in the Contract file. With an older TypeScript the framework writes a <code>.d.contract.ts</code> beside each file instead (<a href="https://github.com/dannyhw/storybook-framework-exact#types">README, "Types"</a>). This part is an experiment on a beta.</p>
+<p>From the component's props, read from the Contract file each time TypeScript looks. TypeScript 7.1 (in beta) lets a package say how a file that is not TypeScript reads as TypeScript, and the framework does that for <code>.contract</code> files. A wrong or misspelt arg is an error in the story, and a shape taken from another Contract file is checked too. Nothing is written beside your sources.</p>
+<pre><code><span class="cm">// tsconfig.json</span>
+{ "contentMappers": [{ "package": "storybook-framework-exact", "extensions": [".contract"] }] }</code></pre>
+<ul>
+  <li><b>On the command line:</b> <code>tsc --runExternalCode</code>. The mapper is code TypeScript runs, so it asks to be told it may; without the flag it stops with <code>TS18068</code>.</li>
+  <li><b>In VS Code:</b> the built-in TypeScript support cannot run TypeScript 7. Install the <a href="https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview">TypeScript 7 extension</a>, turn it on and point it at the project's TypeScript (below), then choose the workspace's version once with <b>TypeScript: Select TypeScript Version…</b>; until you do, the extension runs the build it ships with. Go to Definition on a story's arg then opens the prop in the Contract file.</li>
+</ul>
+<pre><code><span class="cm">// .vscode/settings.json</span>
+{ "js/ts.experimental.useTsgo": true, "js/ts.tsdk.path": "node_modules/typescript" }</code></pre>
+<p>With a TypeScript older than 7.1 the framework writes a <code>.d.contract.ts</code> beside each file instead (<a href="https://github.com/dannyhw/storybook-framework-exact#types">README, "Types"</a>). The mapper is an experiment on a beta: see <a href="#weak">Known limits</a>.</p>
 
 <h3>Is the component in my story the one my app ships?</h3>
 <p>Yes. The generated root around it is ordinary Contract, and Exact's own compiler and runtime build it. The framework changes two things only: when the app starts, and who answers its data. The framework reuses the runtime modules between builds to be fast, and a test in CI holds that to the same bytes as Exact's whole build. What a story leaves out is the rest of your app: its <code>app.ts</code>, Rust and native modules are not built, so a component that owns data gets it from the story's mocks.</p>
@@ -550,6 +561,7 @@ component Story
   <li><b>One story per document.</b> Docs pages use iframes, and each story you open starts a fresh copy of the runtime. Earlier copies are not disposed until the preview reloads, so a very long session holds on to their memory and timers. How much has not been measured.</li>
   <li><b>Decorators cannot wrap markup</b>, and a component with a slot is shown with a line of placeholder text in it.</li>
   <li><b>What an action prop is called with is worked out from compiler errors.</b> Exact does not report it, so the framework compiles the generated root, reads the refusals and corrects it. A reworded compiler message would break this; the pinned commit and a test against the real compiler guard it. If it fails for a component, its stories show "Could not work out what … action props are given".</li>
+  <li><b>Typed imports depend on a beta.</b> The content mapper needs TypeScript 7.1, which is not released, and speaks version 1 of a protocol TypeScript has not documented. It has been run with <code>tsc</code> and with TypeScript's language server, not through every editor feature, and not with typescript-eslint or in watch mode. Exact has its own generated types for <code>app.ts</code>; if it ships a mapper for <code>.contract</code> too, the two will have to agree on who reads the extension.</li>
   <li><b>Props are read from the source text</b>, not by the compiler, so that imports are instant. It expects source laid out as Exact's formatter leaves it; props brought in through <code>members</code> may be missed (not tested).</li>
   <li><b>An edit rebuilds every component of the app you have open.</b> Fine at 35 ms each; it has not been tried with hundreds open.</li>
   <li><b>Dark mode follows the browser</b> unless a decorator sets the document's <code>color-scheme</code>, which every token follows (<a href="https://github.com/dannyhw/storybook-framework-exact#colour-scheme">README, "Colour scheme"</a>).</li>
@@ -591,7 +603,7 @@ component Story
   <li><b>Where Exact and the cache are:</b> <code>npx storybook-exact where</code></li>
 </ul>
 <h3>Reading the code</h3>
-<p>The source is about 2,200 lines. To run the examples and tests from a clone, see <a href="https://github.com/dannyhw/storybook-framework-exact#developing-this-repository">Developing this repository</a>. A reading order:</p>
+<p>The source is about 2,400 lines. To run the examples and tests from a clone, see <a href="https://github.com/dannyhw/storybook-framework-exact#developing-this-repository">Developing this repository</a>. A reading order:</p>
 <ol>
   <li><code>src/preset.ts</code> and <code>src/preview/entry-preview.ts</code>, about 20 lines each: the whole Storybook-facing surface.</li>
   <li><code>src/node/vite-plugin.ts</code>: import, the dev middleware and the static build.</li>
